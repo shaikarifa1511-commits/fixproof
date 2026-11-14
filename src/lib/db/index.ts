@@ -1621,3 +1621,8 @@ export function getAuditLogs(reportId?: string, limit = 100): any[] {
   return db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?').all(limit);
 }
 
+// Re-export Supabase PostgreSQL adapter capabilities
+export * from './supabase-adapter';
+export { isSupabaseServerConfigured } from '@/lib/supabase/server';
+export { isSupabaseConfigured, supabase } from '@/lib/supabase/client';
+

@@ -1,0 +1,34 @@
+# ==============================================================================
+# FIXPROOF — RENDER DEPLOYMENT BLUEPRINT
+# Infrastructure as Code for Render Cloud
+# Tagline: "Reported. Repaired. Verified."
+# ==============================================================================
+
+services:
+  - type: web
+    name: fixproof
+    env: node
+    plan: starter
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: GEMINI_MODEL
+        value: gemini-1.5-flash
+      # Supabase Integration (Fill in your Supabase credentials in Render dashboard)
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
