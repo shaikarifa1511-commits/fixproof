@@ -145,3 +145,4 @@ export function VerificationStatusBadge({ status }: { status: VerificationStatus
       return null;
   }
 }
+

@@ -303,3 +303,4 @@ export const TRANSLATIONS: Record<SupportedLanguage, Translations> = {
     demoDataLabel: 'ಡೆಮೊ ಮಾಹಿತಿ',
   },
 };
+

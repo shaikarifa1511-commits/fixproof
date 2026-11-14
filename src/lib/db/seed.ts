@@ -1143,3 +1143,4 @@ export const SYNTHETIC_CASES: SeedDataCase[] = [
     ],
   },
 ];
+

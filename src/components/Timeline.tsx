@@ -72,3 +72,4 @@ export function Timeline({ events }: { events: TimelineEvent[] }) {
     </div>
   );
 }
+

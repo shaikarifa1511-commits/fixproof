@@ -215,3 +215,4 @@ export function CameraCaptureModal({
     </div>
   );
 }
+

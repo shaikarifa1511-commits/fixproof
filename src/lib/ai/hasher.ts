@@ -173,3 +173,4 @@ export function evaluateChronology(
     notes: `Repair submitted ${diffHours >= 24 ? (diffHours / 24).toFixed(1) + ' days' : diffHours.toFixed(1) + ' hours'} after complaint.`,
   };
 }
+

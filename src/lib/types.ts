@@ -196,3 +196,4 @@ export interface PublicAnalytics {
   statusBreakdown: Record<WorkStatus, number>;
   verificationBreakdown: Record<VerificationStatus, number>;
 }
+

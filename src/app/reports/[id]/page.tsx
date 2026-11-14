@@ -682,3 +682,4 @@ export default function ReportDetailPage() {
     </div>
   );
 }
+
