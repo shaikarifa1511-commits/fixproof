@@ -235,7 +235,7 @@ BEFORE UPDATE ON reports
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ==============================================================================
--- 6. ROW LEVEL SECURITY (RLS) POLICIES
+-- 6. ROW LEVEL SECURITY (RLS) POLICIES (IDEMPOTENT)
 -- ==============================================================================
 
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
@@ -249,61 +249,112 @@ ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
 -- Transparent Public Access: Anyone can inspect public civic reports and evidence
+DROP POLICY IF EXISTS "Public read for reports" ON reports;
 CREATE POLICY "Public read for reports" ON reports FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for evidence" ON evidence_assets;
 CREATE POLICY "Public read for evidence" ON evidence_assets FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for repair claims" ON repair_claims;
 CREATE POLICY "Public read for repair claims" ON repair_claims FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for verification results" ON verification_results;
 CREATE POLICY "Public read for verification results" ON verification_results FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for audit logs" ON audit_logs;
 CREATE POLICY "Public read for audit logs" ON audit_logs FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for citizen challenges" ON citizen_challenges;
 CREATE POLICY "Public read for citizen challenges" ON citizen_challenges FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for organizations" ON organizations;
 CREATE POLICY "Public read for organizations" ON organizations FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Public read for user public profiles" ON users;
 CREATE POLICY "Public read for user public profiles" ON users FOR SELECT USING (true);
 
 -- Authenticated / Service Role Permissions
+DROP POLICY IF EXISTS "Full access for service role on reports" ON reports;
 CREATE POLICY "Full access for service role on reports" ON reports FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on evidence" ON evidence_assets;
 CREATE POLICY "Full access for service role on evidence" ON evidence_assets FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on claims" ON repair_claims;
 CREATE POLICY "Full access for service role on claims" ON repair_claims FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on verifications" ON verification_results;
 CREATE POLICY "Full access for service role on verifications" ON verification_results FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on challenges" ON citizen_challenges;
 CREATE POLICY "Full access for service role on challenges" ON citizen_challenges FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on audit" ON audit_logs;
 CREATE POLICY "Full access for service role on audit" ON audit_logs FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on notifications" ON notifications;
 CREATE POLICY "Full access for service role on notifications" ON notifications FOR ALL USING (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "Full access for service role on users" ON users;
 CREATE POLICY "Full access for service role on users" ON users FOR ALL USING (auth.role() = 'service_role');
 
 -- Public insertion for citizen complaints and challenges
+DROP POLICY IF EXISTS "Permit insert for new reports" ON reports;
 CREATE POLICY "Permit insert for new reports" ON reports FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permit update for reports" ON reports;
 CREATE POLICY "Permit update for reports" ON reports FOR UPDATE USING (true);
+
+DROP POLICY IF EXISTS "Permit insert for evidence" ON evidence_assets;
 CREATE POLICY "Permit insert for evidence" ON evidence_assets FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permit insert for repair claims" ON repair_claims;
 CREATE POLICY "Permit insert for repair claims" ON repair_claims FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permit insert for verification results" ON verification_results;
 CREATE POLICY "Permit insert for verification results" ON verification_results FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permit insert for citizen challenges" ON citizen_challenges;
 CREATE POLICY "Permit insert for citizen challenges" ON citizen_challenges FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Permit insert for audit logs" ON audit_logs;
 CREATE POLICY "Permit insert for audit logs" ON audit_logs FOR INSERT WITH CHECK (true);
 
 -- Notifications: user can view their own notifications
+DROP POLICY IF EXISTS "Users read own notifications" ON notifications;
 CREATE POLICY "Users read own notifications" ON notifications FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Users update own notifications" ON notifications;
 CREATE POLICY "Users update own notifications" ON notifications FOR UPDATE USING (true);
 
 -- ==============================================================================
--- 7. SUPABASE STORAGE BUCKET CONFIGURATION
+-- 7. SUPABASE STORAGE BUCKET CONFIGURATION (SAFE EXECUTION)
 -- ==============================================================================
 
--- Storage bucket for cryptographic evidence photographs
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-    'fixproof-evidence',
-    'fixproof-evidence',
-    true,
-    15728640, -- 15MB
-    ARRAY['image/jpeg', 'image/png', 'image/webp']
-)
-ON CONFLICT (id) DO UPDATE SET
-    public = true,
-    file_size_limit = 15728640,
-    allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+DO $$
+BEGIN
+    INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    VALUES (
+        'fixproof-evidence',
+        'fixproof-evidence',
+        true,
+        15728640,
+        ARRAY['image/jpeg', 'image/png', 'image/webp']
+    )
+    ON CONFLICT (id) DO UPDATE SET
+        public = true,
+        file_size_limit = 15728640,
+        allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'];
+EXCEPTION
+    WHEN OTHERS THEN null;
+END $$;
 
--- Storage bucket policies (Public read, authenticated upload)
+DROP POLICY IF EXISTS "Public read for fixproof-evidence" ON storage.objects;
 CREATE POLICY "Public read for fixproof-evidence"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'fixproof-evidence');
 
+DROP POLICY IF EXISTS "Upload permitted for fixproof-evidence" ON storage.objects;
 CREATE POLICY "Upload permitted for fixproof-evidence"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'fixproof-evidence');
