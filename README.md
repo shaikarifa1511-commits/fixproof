@@ -117,7 +117,22 @@ npm run start
 # Server listens on http://localhost:3000
 
 # Run automated integrity and verification test suite:
-node scripts/test-fixproof.js
-node scripts/test-e2e-flow.js
+node scripts/test-database.js
+node scripts/test-auth-rbac.js
+node scripts/test-evidence-integrity.js
+node scripts/test-ai-verifier.js
 ```
+
+---
+
+## ☁️ Cloud Architecture, Supabase & Render Deployment
+
+FixProof supports dual-engine persistence (Supabase PostgreSQL in cloud production, embedded SQLite for local/offline execution):
+
+* **Supabase PostgreSQL Schema**: [`supabase/schema.sql`](./supabase/schema.sql) with full DDL, RLS policies, and storage bucket definitions.
+* **Supabase Demonstration Seed**: [`supabase/seed.sql`](./supabase/seed.sql) with 10 synthetic civic test cases, users, organizations, and evidence hashes.
+* **Render Blueprint**: [`render.yaml`](./render.yaml) and production [`Dockerfile`](./Dockerfile).
+* **Live Deployment**: **[https://fixproof-pi.vercel.app](https://fixproof-pi.vercel.app)**
+* **Government Officials Directory**: **[https://fixproof-pi.vercel.app/contacts](https://fixproof-pi.vercel.app/contacts)**
+
 
