@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
+import { useLanguage } from '@/lib/i18n/context';
 import { NotificationItem, Report } from '@/lib/types';
 import { VerificationStatusBadge, WorkStatusBadge } from '@/components/StatusBadge';
 import {
@@ -20,6 +21,7 @@ import {
 
 export default function MyReportsPage() {
   const { currentUser } = useAuth();
+  const { t } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);

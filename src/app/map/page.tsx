@@ -5,6 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ProblemCategory, Report, VerificationStatus, WorkStatus } from '@/lib/types';
 import { VerificationStatusBadge, WorkStatusBadge } from '@/components/StatusBadge';
+import { useLanguage } from '@/lib/i18n/context';
 import {
   ArrowRight,
   Eye,
@@ -23,6 +24,7 @@ const LeafletMap = dynamic(
 );
 
 export default function CivicMapPage() {
+  const { t } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -66,24 +68,30 @@ export default function CivicMapPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchMapReports()}
-              placeholder="Search area, street, or case ID..."
+              placeholder={t?.searchPlaceholder || "Search area, street, or case ID..."}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Category Filter Pill Cluster */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            {['all', 'pothole', 'garbage', 'footpath', 'drainage'].map((cat) => (
+            {[
+              { id: 'all', label: t?.filterAll || 'All' },
+              { id: 'pothole', label: t?.pothole || 'Pothole' },
+              { id: 'garbage', label: t?.garbage || 'Garbage' },
+              { id: 'footpath', label: t?.footpath || 'Footpath' },
+              { id: 'drainage', label: t?.drainage || 'Drainage' },
+            ].map((cat) => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap capitalize transition-all ${
-                  selectedCategory === cat
+                  selectedCategory === cat.id
                     ? 'bg-blue-600 text-white shadow-2xs'
                     : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                 }`}
               >
-                {cat}
+                {cat.label}
               </button>
             ))}
           </div>
@@ -95,11 +103,11 @@ export default function CivicMapPage() {
               onChange={(e) => setSelectedVerification(e.target.value)}
               className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 cursor-pointer"
             >
-              <option value="all">All Verification</option>
-              <option value="appears_resolved">Appears Resolved</option>
-              <option value="appears_unresolved">Appears Unresolved</option>
-              <option value="partially_resolved">Partially Resolved</option>
-              <option value="insufficient_evidence">Insufficient Evidence</option>
+              <option value="all">{t?.allVerifications || 'All Verification'}</option>
+              <option value="appears_resolved">{t?.appearsResolved || 'Appears Resolved'}</option>
+              <option value="appears_unresolved">{t?.appearsUnresolved || 'Appears Unresolved'}</option>
+              <option value="partially_resolved">{t?.partiallyResolved || 'Partially Resolved'}</option>
+              <option value="insufficient_evidence">{t?.insufficientEvidence || 'Insufficient Evidence'}</option>
             </select>
           </div>
         </div>

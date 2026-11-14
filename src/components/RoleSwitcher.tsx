@@ -2,38 +2,40 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth/context';
+import { useLanguage } from '@/lib/i18n/context';
 import { UserRole } from '@/lib/types';
 import { Shield, User, Wrench, Users, ChevronDown, Check } from 'lucide-react';
 
 export function RoleSwitcher() {
   const { currentUser, setRole } = useAuth();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
 
   const roles: Array<{ role: UserRole; label: string; desc: string; icon: any; color: string }> = [
     {
       role: 'citizen',
-      label: 'Citizen',
+      label: t?.roleCitizen || 'Citizen',
       desc: 'Report issues, track status, dispute false closures',
       icon: User,
       color: 'text-blue-600 bg-blue-50',
     },
     {
       role: 'authority',
-      label: 'Authority Engineer',
+      label: t?.roleAuthority || 'Authority Engineer',
       desc: 'Update work status, submit repair claims & after-photos',
       icon: Wrench,
       color: 'text-indigo-600 bg-indigo-50',
     },
     {
       role: 'moderator',
-      label: 'Civic Moderator',
+      label: t?.roleModerator || 'Civic Moderator',
       desc: 'Arbitrate disputes, review fraud flags, override AI',
       icon: Shield,
       color: 'text-purple-600 bg-purple-50',
     },
     {
       role: 'public',
-      label: 'Public Visitor',
+      label: t?.rolePublic || 'Public Visitor',
       desc: 'Browse civic map, inspect verified cases, read analytics',
       icon: Users,
       color: 'text-slate-600 bg-slate-50',

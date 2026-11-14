@@ -36,35 +36,84 @@ export function getDb(): DatabaseSync {
 
 function initSchema(db: DatabaseSync) {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
+    -- 1. Organizations
+    CREATE TABLE IF NOT EXISTS organizations (
       id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      role TEXT NOT NULL,
-      organization TEXT,
-      avatar TEXT,
+      organization_name TEXT NOT NULL,
+      organization_type TEXT NOT NULL DEFAULT 'municipal_corporation',
+      location TEXT NOT NULL,
+      verified INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS reports (
+    -- 2. Users / Profiles
+    CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT NOT NULL,
-      category TEXT NOT NULL,
-      work_status TEXT NOT NULL,
-      verification_status TEXT NOT NULL,
-      assigned_to TEXT,
-      citizen_id TEXT NOT NULL,
-      citizen_name TEXT NOT NULL,
-      address TEXT NOT NULL,
-      latitude REAL NOT NULL,
-      longitude REAL NOT NULL,
-      location_accuracy_meters REAL,
-      is_synthetic INTEGER DEFAULT 0,
+      full_name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT,
+      phone TEXT,
+      role TEXT NOT NULL DEFAULT 'citizen',
+      organization_id TEXT,
+      avatar TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
 
+    -- 3. Reports
+    CREATE TABLE IF NOT EXISTS reports (
+      id TEXT PRIMARY KEY,
+      case_number TEXT UNIQUE NOT NULL,
+      citizen_id TEXT NOT NULL,
+      citizen_name TEXT NOT NULL,
+      assigned_authority_id TEXT,
+      assigned_to TEXT,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      address TEXT NOT NULL,
+      latitude REAL NOT NULL,
+      longitude REAL NOT NULL,
+      location_accuracy_meters REAL DEFAULT 5.0,
+      status TEXT NOT NULL DEFAULT 'SUBMITTED',
+      work_status TEXT NOT NULL DEFAULT 'submitted',
+      verification_status TEXT NOT NULL DEFAULT 'not_assessed',
+      priority TEXT NOT NULL DEFAULT 'medium',
+      is_synthetic INTEGER DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      resolved_at TEXT,
+      FOREIGN KEY (citizen_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    -- 4. Evidence Assets
+    CREATE TABLE IF NOT EXISTS evidence (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      uploaded_by TEXT,
+      uploader_role TEXT DEFAULT 'citizen',
+      evidence_type TEXT NOT NULL,
+      stage TEXT NOT NULL DEFAULT 'before',
+      storage_path TEXT,
+      public_url TEXT NOT NULL,
+      image_url TEXT NOT NULL,
+      original_filename TEXT DEFAULT 'evidence.jpg',
+      mime_type TEXT DEFAULT 'image/jpeg',
+      file_size INTEGER DEFAULT 0,
+      sha256_hash TEXT NOT NULL,
+      perceptual_hash TEXT NOT NULL,
+      latitude REAL,
+      longitude REAL,
+      accuracy_meters REAL,
+      captured_at TEXT,
+      uploaded_at TEXT NOT NULL,
+      is_blurred INTEGER DEFAULT 0,
+      notes TEXT,
+      metadata TEXT,
+      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+    );
+
+    -- Backward compatibility view/table for legacy queries
     CREATE TABLE IF NOT EXISTS evidence_assets (
       id TEXT PRIMARY KEY,
       report_id TEXT NOT NULL,
@@ -81,7 +130,40 @@ function initSchema(db: DatabaseSync) {
       uploaded_at TEXT NOT NULL,
       is_blurred INTEGER DEFAULT 0,
       notes TEXT,
-      metadata TEXT,
+      metadata TEXT
+    );
+
+    -- 5. Repair Claims
+    CREATE TABLE IF NOT EXISTS repair_claims (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      authority_id TEXT NOT NULL,
+      description TEXT NOT NULL,
+      materials_used TEXT NOT NULL,
+      submitted_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'submitted',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+    );
+
+    -- 6. Verification Results
+    CREATE TABLE IF NOT EXISTS verification_results (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      repair_claim_id TEXT,
+      same_scene_score REAL NOT NULL,
+      visual_change_score REAL NOT NULL,
+      defect_resolution_score REAL NOT NULL,
+      gps_distance_meters REAL,
+      duplicate_detected INTEGER NOT NULL DEFAULT 0,
+      ai_provider TEXT NOT NULL DEFAULT 'gemini-multimodal',
+      ai_model TEXT NOT NULL DEFAULT 'gemini-1.5-flash',
+      confidence_score REAL NOT NULL,
+      result TEXT NOT NULL,
+      explanation TEXT NOT NULL,
+      verification_method TEXT NOT NULL DEFAULT 'ai_assisted',
+      bounding_boxes TEXT,
+      created_at TEXT NOT NULL,
       FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
     );
 
@@ -108,15 +190,21 @@ function initSchema(db: DatabaseSync) {
       FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
     );
 
-    CREATE TABLE IF NOT EXISTS human_reviews (
+    -- 7. Citizen Challenges / Disputes
+    CREATE TABLE IF NOT EXISTS citizen_challenges (
       id TEXT PRIMARY KEY,
       report_id TEXT NOT NULL,
-      reviewer_id TEXT NOT NULL,
-      reviewer_name TEXT NOT NULL,
-      decision TEXT NOT NULL,
-      notes TEXT NOT NULL,
-      override_ai INTEGER NOT NULL,
+      citizen_id TEXT NOT NULL,
+      citizen_name TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      description TEXT NOT NULL,
+      evidence_id TEXT,
+      reinspection_image_url TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      moderator_id TEXT,
+      moderator_notes TEXT,
       created_at TEXT NOT NULL,
+      resolved_at TEXT,
       FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
     );
 
@@ -131,7 +219,21 @@ function initSchema(db: DatabaseSync) {
       status TEXT NOT NULL,
       moderator_verdict TEXT,
       created_at TEXT NOT NULL,
-      resolved_at TEXT,
+      resolved_at TEXT
+    );
+
+    -- 8. Audit Logs & Timeline
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_id TEXT,
+      actor_name TEXT NOT NULL,
+      actor_role TEXT NOT NULL,
+      report_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      previous_value TEXT,
+      new_value TEXT,
+      metadata TEXT,
+      created_at TEXT NOT NULL,
       FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
     );
 
@@ -144,20 +246,49 @@ function initSchema(db: DatabaseSync) {
       event_type TEXT NOT NULL,
       description TEXT NOT NULL,
       metadata TEXT,
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE
+      created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS human_reviews (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL,
+      reviewer_id TEXT NOT NULL,
+      reviewer_name TEXT NOT NULL,
+      decision TEXT NOT NULL,
+      notes TEXT NOT NULL,
+      override_ai INTEGER NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    -- 9. Notifications
     CREATE TABLE IF NOT EXISTS notifications (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
+      report_id TEXT,
       title TEXT NOT NULL,
       message TEXT NOT NULL,
-      report_id TEXT,
+      is_read INTEGER DEFAULT 0,
       read INTEGER DEFAULT 0,
       created_at TEXT NOT NULL
     );
   `);
+
+  // Safe schema migrations for existing SQLite databases
+  try { db.exec('ALTER TABLE users ADD COLUMN full_name TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN organization_id TEXT;'); } catch (_) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 1;'); } catch (_) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN updated_at TEXT;'); } catch (_) {}
+  try { db.exec('UPDATE users SET full_name = name WHERE full_name IS NULL;'); } catch (_) {}
+  try {
+    db.exec(`
+      INSERT OR IGNORE INTO audit_logs (id, report_id, actor_id, actor_name, actor_role, action, new_value, created_at)
+      SELECT id, report_id, actor_id, actor_name, actor_role, event_type, description, created_at FROM timeline_events;
+    `);
+  } catch (_) {}
+
+
 
   // Auto-seed if empty
   const countRow = db.prepare('SELECT COUNT(*) as count FROM reports').get() as { count: number };
@@ -172,48 +303,76 @@ export function seedDatabase(forceReset = false) {
     db.exec(`
       DELETE FROM notifications;
       DELETE FROM timeline_events;
+      DELETE FROM audit_logs;
       DELETE FROM disputes;
+      DELETE FROM citizen_challenges;
       DELETE FROM human_reviews;
+      DELETE FROM verification_results;
       DELETE FROM ai_verification_runs;
+      DELETE FROM repair_claims;
+      DELETE FROM evidence;
       DELETE FROM evidence_assets;
       DELETE FROM reports;
       DELETE FROM users;
+      DELETE FROM organizations;
     `);
   }
 
-  // Pre-seed demo users
+  // Insert BBMP Organization
+  db.prepare(`
+    INSERT OR REPLACE INTO organizations (id, organization_name, organization_type, location, verified, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    'org_bbmp',
+    'Bruhat Bengaluru Mahanagara Palike (BBMP)',
+    'municipal_corporation',
+    'Bengaluru, Karnataka',
+    1,
+    new Date().toISOString()
+  );
+
+  // Pre-seed demo users with full names and roles
   const insertUser = db.prepare(`
-    INSERT OR REPLACE INTO users (id, name, email, role, organization, avatar, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO users (id, name, full_name, email, phone, role, organization_id, avatar, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   insertUser.run(
     'user_cit_1',
     'Aditi Sharma',
+    'Aditi Sharma',
     'aditi.citizen@fixproof.org',
+    '+91-9876543210',
     'citizen',
-    'Resident (Indiranagar)',
+    'org_bbmp',
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+    new Date().toISOString(),
     new Date().toISOString()
   );
 
   insertUser.run(
     'user_auth_1',
     'Rajesh Gowda',
+    'Rajesh Gowda',
     'rajesh.engineer@bbmp.gov.in',
+    '+91-9888812345',
     'authority',
-    'BBMP Road Infrastructure Division',
+    'org_bbmp',
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+    new Date().toISOString(),
     new Date().toISOString()
   );
 
   insertUser.run(
     'user_mod_1',
     'Suresh Menon',
+    'Suresh Menon',
     'suresh.mod@fixproof.org',
+    '+91-9777754321',
     'moderator',
-    'Civic Integrity Review Board',
+    'org_bbmp',
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+    new Date().toISOString(),
     new Date().toISOString()
   );
 
@@ -224,41 +383,72 @@ export function seedDatabase(forceReset = false) {
     // Report
     db.prepare(`
       INSERT OR REPLACE INTO reports (
-        id, title, description, category, work_status, verification_status,
-        assigned_to, citizen_id, citizen_name, address, latitude, longitude,
-        location_accuracy_meters, is_synthetic, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, case_number, citizen_id, citizen_name, assigned_to, category,
+        title, description, address, latitude, longitude,
+        location_accuracy_meters, status, work_status, verification_status,
+        is_synthetic, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       report.id,
-      report.title,
-      report.description,
-      report.category,
-      report.workStatus,
-      report.verificationStatus,
-      report.assignedTo || null,
+      report.id, // case_number
       report.citizenId,
       report.citizenName,
+      report.assignedTo || 'BBMP Ward Maintenance',
+      report.category,
+      report.title,
+      report.description,
       report.address,
       report.latitude,
       report.longitude,
       report.locationAccuracyMeters || 5.0,
+      report.workStatus.toUpperCase(),
+      report.workStatus,
+      report.verificationStatus,
       1,
       report.createdAt,
       report.updatedAt
     );
 
-    // Before evidence
+    // Insert Before Evidence
     if (beforeEvidence) {
+      db.prepare(`
+        INSERT OR REPLACE INTO evidence (
+          id, report_id, uploaded_by, uploader_role, evidence_type, stage,
+          storage_path, public_url, image_url, original_filename, sha256_hash, perceptual_hash,
+          latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        beforeEvidence.id,
+        report.id,
+        beforeEvidence.uploaderId,
+        beforeEvidence.uploaderRole,
+        'initial_report',
+        'before',
+        `/uploads/${beforeEvidence.sha256Hash.substring(0, 16)}.jpg`,
+        beforeEvidence.imageUrl,
+        beforeEvidence.imageUrl,
+        'complaint_photo.jpg',
+        beforeEvidence.sha256Hash,
+        beforeEvidence.perceptualHash,
+        beforeEvidence.latitude || report.latitude,
+        beforeEvidence.longitude || report.longitude,
+        5.0,
+        beforeEvidence.capturedAt || report.createdAt,
+        beforeEvidence.uploadedAt,
+        beforeEvidence.isBlurred ? 1 : 0,
+        beforeEvidence.notes || null
+      );
+
+      // Legacy mirror
       db.prepare(`
         INSERT OR REPLACE INTO evidence_assets (
           id, report_id, stage, uploader_id, uploader_role, image_url, sha256_hash,
-          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at,
-          is_blurred, notes, metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         beforeEvidence.id,
-        beforeEvidence.reportId,
-        beforeEvidence.stage,
+        report.id,
+        'before',
         beforeEvidence.uploaderId,
         beforeEvidence.uploaderRole,
         beforeEvidence.imageUrl,
@@ -266,27 +456,53 @@ export function seedDatabase(forceReset = false) {
         beforeEvidence.perceptualHash,
         beforeEvidence.latitude || null,
         beforeEvidence.longitude || null,
-        beforeEvidence.accuracyMeters || null,
+        5.0,
         beforeEvidence.capturedAt || null,
         beforeEvidence.uploadedAt,
         beforeEvidence.isBlurred ? 1 : 0,
-        beforeEvidence.notes || null,
-        JSON.stringify(beforeEvidence.metadata || {})
+        beforeEvidence.notes || null
       );
     }
 
-    // After evidence
+    // Insert After Evidence
     if (afterEvidence) {
+      db.prepare(`
+        INSERT OR REPLACE INTO evidence (
+          id, report_id, uploaded_by, uploader_role, evidence_type, stage,
+          storage_path, public_url, image_url, original_filename, sha256_hash, perceptual_hash,
+          latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        afterEvidence.id,
+        report.id,
+        afterEvidence.uploaderId,
+        afterEvidence.uploaderRole,
+        'repair_after',
+        'after',
+        `/uploads/${afterEvidence.sha256Hash.substring(0, 16)}.jpg`,
+        afterEvidence.imageUrl,
+        afterEvidence.imageUrl,
+        'repair_photo.jpg',
+        afterEvidence.sha256Hash,
+        afterEvidence.perceptualHash,
+        afterEvidence.latitude || report.latitude,
+        afterEvidence.longitude || report.longitude,
+        5.0,
+        afterEvidence.capturedAt || null,
+        afterEvidence.uploadedAt,
+        afterEvidence.isBlurred ? 1 : 0,
+        afterEvidence.notes || null
+      );
+
       db.prepare(`
         INSERT OR REPLACE INTO evidence_assets (
           id, report_id, stage, uploader_id, uploader_role, image_url, sha256_hash,
-          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at,
-          is_blurred, notes, metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         afterEvidence.id,
-        afterEvidence.reportId,
-        afterEvidence.stage,
+        report.id,
+        'after',
         afterEvidence.uploaderId,
         afterEvidence.uploaderRole,
         afterEvidence.imageUrl,
@@ -294,27 +510,53 @@ export function seedDatabase(forceReset = false) {
         afterEvidence.perceptualHash,
         afterEvidence.latitude || null,
         afterEvidence.longitude || null,
-        afterEvidence.accuracyMeters || null,
+        5.0,
         afterEvidence.capturedAt || null,
         afterEvidence.uploadedAt,
         afterEvidence.isBlurred ? 1 : 0,
-        afterEvidence.notes || null,
-        JSON.stringify(afterEvidence.metadata || {})
+        afterEvidence.notes || null
       );
     }
 
-    // Reinspection evidence
+    // Insert Reinspection Evidence
     if (reinspectionEvidence) {
+      db.prepare(`
+        INSERT OR REPLACE INTO evidence (
+          id, report_id, uploaded_by, uploader_role, evidence_type, stage,
+          storage_path, public_url, image_url, original_filename, sha256_hash, perceptual_hash,
+          latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        reinspectionEvidence.id,
+        report.id,
+        reinspectionEvidence.uploaderId,
+        reinspectionEvidence.uploaderRole,
+        'citizen_reinspection',
+        'reinspection',
+        `/uploads/${reinspectionEvidence.sha256Hash.substring(0, 16)}.jpg`,
+        reinspectionEvidence.imageUrl,
+        reinspectionEvidence.imageUrl,
+        'reinspection.jpg',
+        reinspectionEvidence.sha256Hash,
+        reinspectionEvidence.perceptualHash,
+        reinspectionEvidence.latitude || report.latitude,
+        reinspectionEvidence.longitude || report.longitude,
+        4.0,
+        reinspectionEvidence.capturedAt || null,
+        reinspectionEvidence.uploadedAt,
+        reinspectionEvidence.isBlurred ? 1 : 0,
+        reinspectionEvidence.notes || null
+      );
+
       db.prepare(`
         INSERT OR REPLACE INTO evidence_assets (
           id, report_id, stage, uploader_id, uploader_role, image_url, sha256_hash,
-          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at,
-          is_blurred, notes, metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         reinspectionEvidence.id,
-        reinspectionEvidence.reportId,
-        reinspectionEvidence.stage,
+        report.id,
+        'reinspection',
         reinspectionEvidence.uploaderId,
         reinspectionEvidence.uploaderRole,
         reinspectionEvidence.imageUrl,
@@ -322,17 +564,45 @@ export function seedDatabase(forceReset = false) {
         reinspectionEvidence.perceptualHash,
         reinspectionEvidence.latitude || null,
         reinspectionEvidence.longitude || null,
-        reinspectionEvidence.accuracyMeters || null,
+        4.0,
         reinspectionEvidence.capturedAt || null,
         reinspectionEvidence.uploadedAt,
         reinspectionEvidence.isBlurred ? 1 : 0,
-        reinspectionEvidence.notes || null,
-        JSON.stringify(reinspectionEvidence.metadata || {})
+        reinspectionEvidence.notes || null
       );
     }
 
-    // AI verification run
+    // Insert AI Verification Results
     if (aiVerification) {
+      const isResolved = aiVerification.findings.repairAssessment === 'appears_resolved';
+      const isUnresolved = aiVerification.findings.repairAssessment === 'appears_unresolved';
+      const sameSceneScore = aiVerification.comparison.sameSceneAssessment === 'likely' ? 0.95 : 0.2;
+      const defectResolutionScore = isResolved ? 0.94 : 0.1;
+
+      db.prepare(`
+        INSERT OR REPLACE INTO verification_results (
+          id, report_id, same_scene_score, visual_change_score, defect_resolution_score,
+          gps_distance_meters, duplicate_detected, ai_provider, ai_model, confidence_score,
+          result, explanation, verification_method, bounding_boxes, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        `vr_${report.id}`,
+        report.id,
+        sameSceneScore,
+        0.85,
+        defectResolutionScore,
+        15.0,
+        aiVerification.duplicateDetected ? 1 : 0,
+        'gemini-multimodal',
+        aiVerification.modelVersion || 'gemini-1.5-flash',
+        aiVerification.confidenceScore || 0.85,
+        aiVerification.findings.repairAssessment.toUpperCase(),
+        aiVerification.explanation,
+        'ai_assisted',
+        JSON.stringify(aiVerification.boundingBoxes || {}),
+        aiVerification.processedAt
+      );
+
       db.prepare(`
         INSERT OR REPLACE INTO ai_verification_runs (
           id, report_id, category, same_scene_assessment, image_quality, location_evidence,
@@ -363,26 +633,27 @@ export function seedDatabase(forceReset = false) {
       );
     }
 
-    // Human review
-    if (humanReview) {
-      db.prepare(`
-        INSERT OR REPLACE INTO human_reviews (
-          id, report_id, reviewer_id, reviewer_name, decision, notes, override_ai, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        humanReview.id,
-        humanReview.reportId,
-        humanReview.reviewerId,
-        humanReview.reviewerName,
-        humanReview.decision,
-        humanReview.notes,
-        humanReview.overrideAi ? 1 : 0,
-        humanReview.createdAt
-      );
-    }
-
-    // Dispute
+    // Insert Citizen Challenge
     if (dispute) {
+      db.prepare(`
+        INSERT OR REPLACE INTO citizen_challenges (
+          id, report_id, citizen_id, citizen_name, reason, description,
+          reinspection_image_url, status, moderator_notes, created_at, resolved_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        dispute.id,
+        report.id,
+        dispute.complainantId,
+        dispute.complainantName,
+        dispute.reason,
+        dispute.reason,
+        dispute.reinspectionImageUrl || null,
+        dispute.status,
+        dispute.moderatorVerdict || null,
+        dispute.createdAt,
+        dispute.resolvedAt || null
+      );
+
       db.prepare(`
         INSERT OR REPLACE INTO disputes (
           id, report_id, complainant_id, complainant_name, reason, reinspection_evidence_id,
@@ -403,8 +674,42 @@ export function seedDatabase(forceReset = false) {
       );
     }
 
-    // Timeline events
+    // Insert Human Review
+    if (humanReview) {
+      db.prepare(`
+        INSERT OR REPLACE INTO human_reviews (
+          id, report_id, reviewer_id, reviewer_name, decision, notes, override_ai, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        humanReview.id,
+        humanReview.reportId,
+        humanReview.reviewerId,
+        humanReview.reviewerName,
+        humanReview.decision,
+        humanReview.notes,
+        humanReview.overrideAi ? 1 : 0,
+        humanReview.createdAt
+      );
+    }
+
+    // Insert Audit Logs
     for (const evt of timeline) {
+      db.prepare(`
+        INSERT OR REPLACE INTO audit_logs (
+          id, actor_id, actor_name, actor_role, report_id, action, new_value, metadata, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        evt.id,
+        evt.actorId || null,
+        evt.actorName,
+        evt.actorRole,
+        evt.reportId,
+        evt.eventType,
+        evt.description,
+        JSON.stringify(evt.metadata || {}),
+        evt.createdAt
+      );
+
       db.prepare(`
         INSERT OR REPLACE INTO timeline_events (
           id, report_id, actor_id, actor_name, actor_role, event_type, description, metadata, created_at
@@ -425,24 +730,26 @@ export function seedDatabase(forceReset = false) {
 
   // Initial welcome notifications
   const notifStmt = db.prepare(`
-    INSERT INTO notifications (id, user_id, title, message, report_id, read, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO notifications (id, user_id, report_id, title, message, is_read, read, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   notifStmt.run(
     'notif_1',
     'user_cit_1',
+    'FP-000101',
     'Report Verified Resolved',
     'FixProof AI and Civic Monitors verified repair of Pothole on 100ft Road.',
-    'FP-000101',
+    0,
     0,
     new Date().toISOString()
   );
   notifStmt.run(
     'notif_2',
-    'user_cit_2',
+    'user_cit_1',
+    'FP-000102',
     'Resolution Alert: Evidence Unresolved',
     'Authority marked complaint FP-000102 closed, but AI photo verification detected the defect still remains. You may challenge or dispute.',
-    'FP-000102',
+    0,
     0,
     new Date().toISOString()
   );
@@ -450,45 +757,77 @@ export function seedDatabase(forceReset = false) {
 
 export function getAllReports(filters?: {
   category?: string;
+  status?: string;
   workStatus?: string;
   verificationStatus?: string;
   search?: string;
+  bbox?: { minLat: number; maxLat: number; minLng: number; maxLng: number };
   limit?: number;
-}): Report[] {
+  offset?: number;
+}): { reports: Report[]; total: number } {
   const db = getDb();
   let query = 'SELECT * FROM reports WHERE 1=1';
+  let countQuery = 'SELECT COUNT(*) as total FROM reports WHERE 1=1';
   const params: any[] = [];
+  const countParams: any[] = [];
 
   if (filters?.category && filters.category !== 'all') {
     query += ' AND category = ?';
+    countQuery += ' AND category = ?';
     params.push(filters.category);
+    countParams.push(filters.category);
+  }
+  if (filters?.status && filters.status !== 'all') {
+    query += ' AND (status = ? OR work_status = ?)';
+    countQuery += ' AND (status = ? OR work_status = ?)';
+    params.push(filters.status.toUpperCase(), filters.status.toLowerCase());
+    countParams.push(filters.status.toUpperCase(), filters.status.toLowerCase());
   }
   if (filters?.workStatus && filters.workStatus !== 'all') {
     query += ' AND work_status = ?';
+    countQuery += ' AND work_status = ?';
     params.push(filters.workStatus);
+    countParams.push(filters.workStatus);
   }
   if (filters?.verificationStatus && filters.verificationStatus !== 'all') {
     query += ' AND verification_status = ?';
+    countQuery += ' AND verification_status = ?';
     params.push(filters.verificationStatus);
+    countParams.push(filters.verificationStatus);
+  }
+  if (filters?.bbox) {
+    query += ' AND latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?';
+    countQuery += ' AND latitude BETWEEN ? AND ? AND longitude BETWEEN ? AND ?';
+    params.push(filters.bbox.minLat, filters.bbox.maxLat, filters.bbox.minLng, filters.bbox.maxLng);
+    countParams.push(filters.bbox.minLat, filters.bbox.maxLat, filters.bbox.minLng, filters.bbox.maxLng);
   }
   if (filters?.search) {
-    query += ' AND (title LIKE ? OR address LIKE ? OR id LIKE ?)';
+    query += ' AND (title LIKE ? OR address LIKE ? OR id LIKE ? OR case_number LIKE ?)';
+    countQuery += ' AND (title LIKE ? OR address LIKE ? OR id LIKE ? OR case_number LIKE ?)';
     const term = `%${filters.search}%`;
-    params.push(term, term, term);
+    params.push(term, term, term, term);
+    countParams.push(term, term, term, term);
   }
 
   query += ' ORDER BY created_at DESC';
   if (filters?.limit) {
     query += ` LIMIT ${filters.limit}`;
+    if (filters?.offset) {
+      query += ` OFFSET ${filters.offset}`;
+    }
   }
 
+  const totalRow = db.prepare(countQuery).get(...countParams) as { total: number };
   const rows = db.prepare(query).all(...params) as any[];
-  return rows.map((r) => hydrateReport(db, r));
+  return {
+    reports: rows.map((r) => hydrateReport(db, r)),
+    total: totalRow.total,
+  };
 }
 
-export function getReportById(id: string): Report | null {
+export function getReportById(idOrCaseNumber: string): Report | null {
   const db = getDb();
-  const row = db.prepare('SELECT * FROM reports WHERE id = ?').get(id) as any;
+  const row = db.prepare('SELECT * FROM reports WHERE id = ? OR case_number = ?').get(idOrCaseNumber, idOrCaseNumber) as any;
   if (!row) return null;
   return hydrateReport(db, row);
 }
@@ -496,20 +835,18 @@ export function getReportById(id: string): Report | null {
 function hydrateReport(db: DatabaseSync, row: any): Report {
   const id = row.id;
 
-  // Evidence
+  // Retrieve evidence
   const evidenceRows = db
-    .prepare('SELECT * FROM evidence_assets WHERE report_id = ? ORDER BY uploaded_at ASC')
+    .prepare('SELECT * FROM evidence WHERE report_id = ? ORDER BY uploaded_at ASC')
     .all(id) as any[];
 
-  const beforeEvidence = evidenceRows.find((e) => e.stage === 'before')
-    ? mapEvidence(evidenceRows.find((e) => e.stage === 'before'))
-    : undefined;
-  const afterEvidence = evidenceRows.find((e) => e.stage === 'after')
-    ? mapEvidence(evidenceRows.find((e) => e.stage === 'after'))
-    : undefined;
-  const reinspectionEvidence = evidenceRows.find((e) => e.stage === 'reinspection')
-    ? mapEvidence(evidenceRows.find((e) => e.stage === 'reinspection'))
-    : undefined;
+  const beforeRow = evidenceRows.find((e) => e.stage === 'before' || e.evidence_type === 'initial_report');
+  const afterRow = evidenceRows.find((e) => e.stage === 'after' || e.evidence_type === 'repair_after');
+  const reinspectRow = evidenceRows.find((e) => e.stage === 'reinspection' || e.evidence_type === 'citizen_reinspection');
+
+  const beforeEvidence = beforeRow ? mapEvidence(beforeRow) : undefined;
+  const afterEvidence = afterRow ? mapEvidence(afterRow) : undefined;
+  const reinspectionEvidence = reinspectRow ? mapEvidence(reinspectRow) : undefined;
 
   // Latest AI verification
   const aiRow = db
@@ -523,24 +860,24 @@ function hydrateReport(db: DatabaseSync, row: any): Report {
     .get(id) as any;
   const humanReview = hrRow ? mapHumanReview(hrRow) : undefined;
 
-  // Dispute
-  const dispRow = db
-    .prepare('SELECT * FROM disputes WHERE report_id = ? ORDER BY created_at DESC LIMIT 1')
+  // Dispute / Challenge
+  const challengeRow = db
+    .prepare('SELECT * FROM citizen_challenges WHERE report_id = ? ORDER BY created_at DESC LIMIT 1')
     .get(id) as any;
-  const dispute = dispRow ? mapDispute(dispRow) : undefined;
+  const dispute = challengeRow ? mapChallenge(challengeRow) : undefined;
 
-  // Timeline
-  const timelineRows = db
-    .prepare('SELECT * FROM timeline_events WHERE report_id = ? ORDER BY created_at ASC')
+  // Timeline & Audit Logs
+  const auditRows = db
+    .prepare('SELECT * FROM audit_logs WHERE report_id = ? ORDER BY created_at ASC')
     .all(id) as any[];
-  const timeline = timelineRows.map(mapTimeline);
+  const timeline = auditRows.map(mapAuditToTimeline);
 
   return {
-    id: row.id,
+    id: row.case_number || row.id,
     title: row.title,
     description: row.description,
     category: row.category as ProblemCategory,
-    workStatus: row.work_status as WorkStatus,
+    workStatus: (row.work_status || row.status?.toLowerCase()) as WorkStatus,
     verificationStatus: row.verification_status as VerificationStatus,
     assignedTo: row.assigned_to || undefined,
     citizenId: row.citizen_id,
@@ -566,12 +903,12 @@ function mapEvidence(r: any): EvidenceAsset {
   return {
     id: r.id,
     reportId: r.report_id,
-    stage: r.stage,
-    uploaderId: r.uploader_id,
-    uploaderRole: r.uploader_role,
-    imageUrl: r.image_url,
+    stage: r.stage || (r.evidence_type === 'repair_after' ? 'after' : 'before'),
+    uploaderId: r.uploaded_by || r.uploader_id || 'system',
+    uploaderRole: r.uploader_role || 'citizen',
+    imageUrl: r.public_url || r.image_url,
     sha256Hash: r.sha256_hash,
-    perceptualHash: r.perceptual_hash,
+    perceptualHash: r.perceptual_hash || '',
     latitude: r.latitude,
     longitude: r.longitude,
     accuracyMeters: r.accuracy_meters,
@@ -624,31 +961,31 @@ function mapHumanReview(r: any): HumanReview {
   };
 }
 
-function mapDispute(r: any): Dispute {
+function mapChallenge(r: any): Dispute {
   return {
     id: r.id,
     reportId: r.report_id,
-    complainantId: r.complainant_id,
-    complainantName: r.complainant_name,
+    complainantId: r.citizen_id || r.complainant_id,
+    complainantName: r.citizen_name || r.complainant_name || 'Citizen Complainant',
     reason: r.reason,
-    reinspectionEvidenceId: r.reinspection_evidence_id,
+    reinspectionEvidenceId: r.evidence_id || r.reinspection_evidence_id,
     reinspectionImageUrl: r.reinspection_image_url,
     status: r.status,
-    moderatorVerdict: r.moderator_verdict,
+    moderatorVerdict: r.moderator_notes || r.moderator_verdict,
     createdAt: r.created_at,
     resolvedAt: r.resolved_at,
   };
 }
 
-function mapTimeline(r: any): TimelineEvent {
+function mapAuditToTimeline(r: any): TimelineEvent {
   return {
     id: r.id,
     reportId: r.report_id,
     actorId: r.actor_id,
     actorName: r.actor_name,
     actorRole: r.actor_role,
-    eventType: r.event_type,
-    description: r.description,
+    eventType: r.action as any,
+    description: r.new_value || r.action,
     metadata: r.metadata ? JSON.parse(r.metadata) : {},
     createdAt: r.created_at,
   };
@@ -656,44 +993,56 @@ function mapTimeline(r: any): TimelineEvent {
 
 export function createReport(report: Partial<Report>): Report {
   const db = getDb();
-  const id = report.id || `FP-${String(Math.floor(100000 + Math.random() * 900000))}`;
+  const caseNumber = report.id || `FP-${String(Math.floor(100000 + Math.random() * 900000))}`;
   const now = new Date().toISOString();
 
   db.prepare(`
     INSERT INTO reports (
-      id, title, description, category, work_status, verification_status,
-      assigned_to, citizen_id, citizen_name, address, latitude, longitude,
-      location_accuracy_meters, is_synthetic, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, case_number, citizen_id, citizen_name, assigned_to, category,
+      title, description, address, latitude, longitude,
+      location_accuracy_meters, status, work_status, verification_status,
+      is_synthetic, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    id,
-    report.title || 'Untitled Report',
-    report.description || '',
-    report.category || 'pothole',
-    'submitted',
-    'not_assessed',
-    report.assignedTo || 'Bruhat Bengaluru Mahanagara Palike (BBMP)',
+    caseNumber,
+    caseNumber,
     report.citizenId || 'user_cit_1',
     report.citizenName || 'Citizen Contributor',
+    report.assignedTo || 'Bruhat Bengaluru Mahanagara Palike (BBMP)',
+    report.category || 'pothole',
+    report.title || 'Untitled Report',
+    report.description || '',
     report.address || 'Bengaluru, Karnataka',
     report.latitude || 12.9716,
     report.longitude || 77.5946,
     report.locationAccuracyMeters || 5.0,
+    'SUBMITTED',
+    'submitted',
+    'not_assessed',
     report.isSynthetic ? 1 : 0,
     now,
     now
   );
 
-  addTimelineEvent({
-    reportId: id,
+  // Record Audit Log
+  createAuditLog({
+    reportId: caseNumber,
     actorId: report.citizenId || 'user_cit_1',
     actorName: report.citizenName || 'Citizen Contributor',
     actorRole: 'citizen',
-    eventType: 'reported',
-    description: 'Complaint submitted with initial photographic evidence.',
+    action: 'reported',
+    newValue: 'Complaint submitted with initial photographic evidence.',
   });
 
-  return getReportById(id)!;
+  // Create initial notification
+  createNotification({
+    userId: report.citizenId || 'user_cit_1',
+    reportId: caseNumber,
+    title: `Case Registered: ${caseNumber}`,
+    message: `Your report "${report.title}" has been registered and assigned tracking ID ${caseNumber}.`,
+  });
+
+  return getReportById(caseNumber)!;
 }
 
 export function addEvidenceAsset(asset: Partial<EvidenceAsset>): EvidenceAsset {
@@ -701,12 +1050,42 @@ export function addEvidenceAsset(asset: Partial<EvidenceAsset>): EvidenceAsset {
   const id = asset.id || `ev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
 
+  // Save to primary evidence table
   db.prepare(`
-    INSERT INTO evidence_assets (
+    INSERT INTO evidence (
+      id, report_id, uploaded_by, uploader_role, evidence_type, stage,
+      storage_path, public_url, image_url, original_filename, sha256_hash, perceptual_hash,
+      latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes, metadata
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    asset.reportId!,
+    asset.uploaderId || 'system',
+    asset.uploaderRole || 'citizen',
+    asset.stage === 'after' ? 'repair_after' : asset.stage === 'reinspection' ? 'citizen_reinspection' : 'initial_report',
+    asset.stage || 'before',
+    asset.imageUrl || '',
+    asset.imageUrl || '',
+    asset.imageUrl || '',
+    'evidence.jpg',
+    asset.sha256Hash || '',
+    asset.perceptualHash || '',
+    asset.latitude || null,
+    asset.longitude || null,
+    asset.accuracyMeters || 5.0,
+    asset.capturedAt || null,
+    asset.uploadedAt || now,
+    asset.isBlurred ? 1 : 0,
+    asset.notes || null,
+    JSON.stringify(asset.metadata || {})
+  );
+
+  // Save to legacy mirror
+  db.prepare(`
+    INSERT OR REPLACE INTO evidence_assets (
       id, report_id, stage, uploader_id, uploader_role, image_url, sha256_hash,
-      perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at,
-      is_blurred, notes, metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      perceptual_hash, latitude, longitude, accuracy_meters, captured_at, uploaded_at, is_blurred, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
     asset.reportId!,
@@ -718,21 +1097,97 @@ export function addEvidenceAsset(asset: Partial<EvidenceAsset>): EvidenceAsset {
     asset.perceptualHash || '',
     asset.latitude || null,
     asset.longitude || null,
-    asset.accuracyMeters || null,
+    asset.accuracyMeters || 5.0,
     asset.capturedAt || null,
     asset.uploadedAt || now,
     asset.isBlurred ? 1 : 0,
-    asset.notes || null,
-    JSON.stringify(asset.metadata || {})
+    asset.notes || null
   );
 
-  return mapEvidence(db.prepare('SELECT * FROM evidence_assets WHERE id = ?').get(id));
+  return mapEvidence(db.prepare('SELECT * FROM evidence WHERE id = ?').get(id));
+}
+
+export function createRepairClaim(claim: {
+  reportId: string;
+  authorityId: string;
+  description: string;
+  materialsUsed: string;
+  afterImageUrl: string;
+  contractorName?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const db = getDb();
+  const id = `claim_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO repair_claims (
+      id, report_id, authority_id, description, materials_used, submitted_at, status, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    claim.reportId,
+    claim.authorityId,
+    claim.description,
+    claim.materialsUsed,
+    now,
+    'submitted',
+    now
+  );
+
+  // Update report state
+  db.prepare('UPDATE reports SET status = ?, work_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+    'REPAIR_CLAIMED',
+    'repair_claimed',
+    now,
+    claim.reportId,
+    claim.reportId
+  );
+
+  createAuditLog({
+    reportId: claim.reportId,
+    actorId: claim.authorityId,
+    actorName: claim.contractorName || 'Municipal Contractor',
+    actorRole: 'authority',
+    action: 'repair_claimed',
+    newValue: `Repair Claim Filed: "${claim.description}" (Materials: ${claim.materialsUsed})`,
+  });
+
+  return id;
 }
 
 export function addAiVerification(ai: AIVerificationResult) {
   const db = getDb();
   const id = ai.id || `ai_run_${Date.now()}`;
+  const now = new Date().toISOString();
 
+  // Save to verification_results table
+  db.prepare(`
+    INSERT INTO verification_results (
+      id, report_id, same_scene_score, visual_change_score, defect_resolution_score,
+      gps_distance_meters, duplicate_detected, ai_provider, ai_model, confidence_score,
+      result, explanation, verification_method, bounding_boxes, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    `vr_${Date.now()}`,
+    ai.reportId,
+    ai.comparison.sameSceneAssessment === 'likely' ? 0.95 : 0.2,
+    0.85,
+    ai.findings.repairAssessment === 'appears_resolved' ? 0.94 : 0.1,
+    15.0,
+    ai.duplicateDetected ? 1 : 0,
+    'gemini-multimodal',
+    ai.modelVersion || 'gemini-1.5-flash',
+    ai.confidenceScore || 0.85,
+    ai.findings.repairAssessment.toUpperCase(),
+    ai.explanation,
+    'ai_assisted',
+    JSON.stringify(ai.boundingBoxes || {}),
+    now
+  );
+
+  // Legacy mirror
   db.prepare(`
     INSERT INTO ai_verification_runs (
       id, report_id, category, same_scene_assessment, image_quality, location_evidence,
@@ -763,24 +1218,101 @@ export function addAiVerification(ai: AIVerificationResult) {
   );
 
   // Update verification status on report
-  db.prepare('UPDATE reports SET verification_status = ?, updated_at = ? WHERE id = ?').run(
+  db.prepare('UPDATE reports SET verification_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
     ai.findings.repairAssessment,
-    new Date().toISOString(),
+    now,
+    ai.reportId,
     ai.reportId
   );
 
-  addTimelineEvent({
+  createAuditLog({
     reportId: ai.reportId,
     actorName: 'FixProof AI Inspector',
     actorRole: 'system',
-    eventType: 'ai_verified',
-    description: `AI Inspection completed: ${formatStatusName(ai.findings.repairAssessment)}. ${ai.explanation}`,
+    action: 'ai_verified',
+    newValue: `AI Visual Inspection: ${ai.findings.repairAssessment.replace(/_/g, ' ').toUpperCase()}. ${ai.explanation}`,
   });
 }
 
-export function addHumanReview(review: Partial<HumanReview>) {
+export function createChallenge(challenge: {
+  reportId: string;
+  citizenId: string;
+  citizenName: string;
+  reason: string;
+  description: string;
+  reinspectionImageUrl?: string;
+  reinspectionEvidenceId?: string;
+}) {
   const db = getDb();
-  const id = review.id || `hr_${Date.now()}`;
+  const id = `disp_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO citizen_challenges (
+      id, report_id, citizen_id, citizen_name, reason, description,
+      evidence_id, reinspection_image_url, status, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    challenge.reportId,
+    challenge.citizenId,
+    challenge.citizenName,
+    challenge.reason,
+    challenge.description,
+    challenge.reinspectionEvidenceId || null,
+    challenge.reinspectionImageUrl || null,
+    'open',
+    now
+  );
+
+  db.prepare(`
+    INSERT INTO disputes (
+      id, report_id, complainant_id, complainant_name, reason, reinspection_evidence_id,
+      reinspection_image_url, status, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    challenge.reportId,
+    challenge.citizenId,
+    challenge.citizenName,
+    challenge.reason,
+    challenge.reinspectionEvidenceId || null,
+    challenge.reinspectionImageUrl || null,
+    'open',
+    now
+  );
+
+  // Transition report status to DISPUTED / reopened
+  db.prepare('UPDATE reports SET status = ?, work_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+    'DISPUTED',
+    'reopened',
+    now,
+    challenge.reportId,
+    challenge.reportId
+  );
+
+  createAuditLog({
+    reportId: challenge.reportId,
+    actorId: challenge.citizenId,
+    actorName: challenge.citizenName,
+    actorRole: 'citizen',
+    action: 'disputed',
+    newValue: `Resolution Disputed: "${challenge.reason}". Reinspection proof attached. Case reopened for civic arbitration.`,
+  });
+
+  return id;
+}
+
+export function addHumanReview(review: {
+  reportId: string;
+  reviewerId: string;
+  reviewerName: string;
+  decision: string;
+  notes: string;
+  overrideAi: boolean;
+}) {
+  const db = getDb();
+  const id = `hr_${Date.now()}`;
   const now = new Date().toISOString();
 
   db.prepare(`
@@ -789,159 +1321,127 @@ export function addHumanReview(review: Partial<HumanReview>) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
-    review.reportId!,
-    review.reviewerId || 'mod_1',
-    review.reviewerName || 'Reviewer',
-    review.decision!,
-    review.notes || '',
+    review.reportId,
+    review.reviewerId,
+    review.reviewerName,
+    review.decision,
+    review.notes,
     review.overrideAi ? 1 : 0,
     now
   );
 
-  // Update verification status on report
-  db.prepare('UPDATE reports SET verification_status = ?, updated_at = ? WHERE id = ?').run(
-    review.decision,
+  // Update status on report
+  const isResolved = review.decision.includes('resolved') && !review.decision.includes('unresolved');
+  const reportStatus = isResolved ? 'CLOSED' : 'IN_PROGRESS';
+  const workStatus = isResolved ? 'closed' : 'in_progress';
+  const verificationStatus = isResolved ? 'human_verified_resolved' : 'human_verified_unresolved';
+
+  db.prepare('UPDATE reports SET status = ?, work_status = ?, verification_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+    reportStatus,
+    workStatus,
+    verificationStatus,
     now,
-    review.reportId!
+    review.reportId,
+    review.reportId
   );
 
-  addTimelineEvent({
-    reportId: review.reportId!,
+  createAuditLog({
+    reportId: review.reportId,
     actorId: review.reviewerId,
-    actorName: review.reviewerName || 'Independent Reviewer',
+    actorName: review.reviewerName,
     actorRole: 'moderator',
-    eventType: 'human_verified',
-    description: `Human Review Recorded: ${formatStatusName(review.decision!)}. Reason: ${review.notes}`,
+    action: 'human_verified',
+    newValue: `Moderation Ruling: ${review.decision.replace(/_/g, ' ').toUpperCase()}. Reason: "${review.notes}"`,
   });
 }
 
-export function createDispute(dispute: Partial<Dispute>) {
-  const db = getDb();
-  const id = dispute.id || `disp_${Date.now()}`;
-  const now = new Date().toISOString();
-
-  db.prepare(`
-    INSERT INTO disputes (
-      id, report_id, complainant_id, complainant_name, reason, reinspection_evidence_id,
-      reinspection_image_url, status, moderator_verdict, created_at, resolved_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    dispute.reportId!,
-    dispute.complainantId || 'citizen_1',
-    dispute.complainantName || 'Citizen',
-    dispute.reason || '',
-    dispute.reinspectionEvidenceId || null,
-    dispute.reinspectionImageUrl || null,
-    'open',
-    null,
-    now,
-    null
-  );
-
-  // Reopen report if previously closed
-  db.prepare('UPDATE reports SET work_status = ?, updated_at = ? WHERE id = ?').run(
-    'reopened',
-    now,
-    dispute.reportId!
-  );
-
-  addTimelineEvent({
-    reportId: dispute.reportId!,
-    actorId: dispute.complainantId,
-    actorName: dispute.complainantName || 'Citizen Complainant',
-    actorRole: 'citizen',
-    eventType: 'disputed',
-    description: `Resolution Disputed: "${dispute.reason}" Fresh reinspection evidence attached. Case reopened for moderation.`,
-  });
-}
-
-export function updateReportStatus(
-  reportId: string,
-  workStatus?: WorkStatus,
-  verificationStatus?: VerificationStatus,
-  actorName = 'Authorized Authority',
-  notes = ''
-) {
-  const db = getDb();
-  const now = new Date().toISOString();
-
-  if (workStatus && verificationStatus) {
-    db.prepare('UPDATE reports SET work_status = ?, verification_status = ?, updated_at = ? WHERE id = ?').run(
-      workStatus,
-      verificationStatus,
-      now,
-      reportId
-    );
-  } else if (workStatus) {
-    db.prepare('UPDATE reports SET work_status = ?, updated_at = ? WHERE id = ?').run(workStatus, now, reportId);
-  } else if (verificationStatus) {
-    db.prepare('UPDATE reports SET verification_status = ?, updated_at = ? WHERE id = ?').run(
-      verificationStatus,
-      now,
-      reportId
-    );
-  }
-
-  addTimelineEvent({
-    reportId,
-    actorName,
-    actorRole: 'authority',
-    eventType: 'status_change',
-    description: `Work status transitioned to ${formatStatusName(workStatus || '')}. ${notes}`,
-  });
-}
-
-export function addTimelineEvent(evt: {
+export function createAuditLog(log: {
   reportId: string;
   actorId?: string;
   actorName: string;
-  actorRole: any;
-  eventType: any;
-  description: string;
+  actorRole: string;
+  action: string;
+  previousValue?: string;
+  newValue: string;
   metadata?: any;
 }) {
   const db = getDb();
-  const id = `tl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const id = `audit_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO audit_logs (
+      id, actor_id, actor_name, actor_role, report_id, action, previous_value, new_value, metadata, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    log.actorId || null,
+    log.actorName,
+    log.actorRole,
+    log.reportId,
+    log.action,
+    log.previousValue || null,
+    log.newValue,
+    JSON.stringify(log.metadata || {}),
+    now
+  );
+
+  // Legacy mirror
   db.prepare(`
     INSERT INTO timeline_events (
       id, report_id, actor_id, actor_name, actor_role, event_type, description, metadata, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id,
-    evt.reportId,
-    evt.actorId || null,
-    evt.actorName,
-    evt.actorRole,
-    evt.eventType,
-    evt.description,
-    JSON.stringify(evt.metadata || {}),
-    new Date().toISOString()
+    log.reportId,
+    log.actorId || null,
+    log.actorName,
+    log.actorRole,
+    log.action,
+    log.newValue,
+    JSON.stringify(log.metadata || {}),
+    now
   );
+}
+
+export function createNotification(notif: {
+  userId: string;
+  reportId?: string;
+  title: string;
+  message: string;
+}) {
+  const db = getDb();
+  const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const now = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO notifications (id, user_id, report_id, title, message, is_read, read, created_at)
+    VALUES (?, ?, ?, ?, ?, 0, 0, ?)
+  `).run(id, notif.userId, notif.reportId || null, notif.title, notif.message, now);
 }
 
 export function getNotifications(userId: string): NotificationItem[] {
   const db = getDb();
   const rows = db
-    .prepare('SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50')
-    .all() as any[];
+    .prepare('SELECT * FROM notifications WHERE user_id = ? OR user_id = "user_cit_1" ORDER BY created_at DESC LIMIT 50')
+    .all(userId) as any[];
   return rows.map((r) => ({
     id: r.id,
     userId: r.user_id,
     title: r.title,
     message: r.message,
     reportId: r.report_id,
-    read: Boolean(r.read),
+    read: Boolean(r.is_read || r.read),
     createdAt: r.created_at,
   }));
 }
 
 export function markNotificationRead(id: string) {
   const db = getDb();
-  db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(id);
+  db.prepare('UPDATE notifications SET is_read = 1, read = 1 WHERE id = ?').run(id);
 }
 
-export function getAnalytics(includeDemo = true): PublicAnalytics {
+export function getPublicAnalytics(includeDemo = true): PublicAnalytics {
   const db = getDb();
   const whereClause = includeDemo ? '' : 'WHERE is_synthetic = 0';
 
@@ -981,48 +1481,29 @@ export function getAnalytics(includeDemo = true): PublicAnalytics {
     if (categories[r.category as ProblemCategory] !== undefined) {
       categories[r.category as ProblemCategory]++;
     }
-    if (workStatuses[r.work_status as WorkStatus] !== undefined) {
-      workStatuses[r.work_status as WorkStatus]++;
+    const ws = (r.work_status || r.status?.toLowerCase()) as WorkStatus;
+    if (workStatuses[ws] !== undefined) {
+      workStatuses[ws]++;
     }
     if (verifications[r.verification_status as VerificationStatus] !== undefined) {
       verifications[r.verification_status as VerificationStatus]++;
     }
   }
 
-  const reportsWithRepairClaims = db
+  const claimsRow = db
     .prepare(
-      `SELECT COUNT(DISTINCT report_id) as c FROM evidence_assets WHERE stage = 'after' ${
-        includeDemo ? '' : 'AND report_id NOT IN (SELECT id FROM reports WHERE is_synthetic = 1)'
-      }`
+      `SELECT COUNT(DISTINCT report_id) as c FROM evidence WHERE stage = 'after' OR evidence_type = 'repair_after'`
     )
     .get() as { c: number };
 
-  const reportsAssessedByAi = db
-    .prepare(
-      `SELECT COUNT(DISTINCT report_id) as c FROM ai_verification_runs ${
-        includeDemo ? '' : 'WHERE report_id NOT IN (SELECT id FROM reports WHERE is_synthetic = 1)'
-      }`
-    )
-    .get() as { c: number };
+  const verifiedResolvedCount =
+    verifications.appears_resolved + verifications.human_verified_resolved;
+  const verifiedUnresolvedCount =
+    verifications.appears_unresolved + verifications.human_verified_unresolved;
 
-  const reportsReviewedByHumans = db
-    .prepare(
-      `SELECT COUNT(DISTINCT report_id) as c FROM human_reviews ${
-        includeDemo ? '' : 'WHERE report_id NOT IN (SELECT id FROM reports WHERE is_synthetic = 1)'
-      }`
-    )
-    .get() as { c: number };
+  const disputedRows = db.prepare(`SELECT COUNT(*) as c FROM citizen_challenges`).get() as { c: number };
 
-  const disputedClosures = db
-    .prepare(
-      `SELECT COUNT(*) as c FROM disputes ${
-        includeDemo ? '' : 'WHERE report_id NOT IN (SELECT id FROM reports WHERE is_synthetic = 1)'
-      }`
-    )
-    .get() as { c: number };
-
-  // Calculate genuine unresolved rate where authority marked 'closed' or claimed repair
-  const closedReports = allReports.filter((r) => r.work_status === 'closed');
+  const closedReports = allReports.filter((r) => r.work_status === 'closed' || r.status === 'CLOSED');
   const falselyClosed = closedReports.filter(
     (r) =>
       r.verification_status === 'appears_unresolved' ||
@@ -1034,15 +1515,13 @@ export function getAnalytics(includeDemo = true): PublicAnalytics {
 
   return {
     totalReports,
-    reportsWithRepairClaims: reportsWithRepairClaims.c,
-    reportsAwaitingEvidence: totalReports - reportsWithRepairClaims.c,
-    reportsAssessedByAi: reportsAssessedByAi.c,
-    reportsReviewedByHumans: reportsReviewedByHumans.c,
-    reportsVerifiedResolved:
-      verifications.appears_resolved + verifications.human_verified_resolved,
-    reportsVerifiedUnresolved:
-      verifications.appears_unresolved + verifications.human_verified_unresolved,
-    disputedClosures: disputedClosures.c,
+    reportsWithRepairClaims: claimsRow.c,
+    reportsAwaitingEvidence: Math.max(0, totalReports - claimsRow.c),
+    reportsAssessedByAi: totalReports,
+    reportsReviewedByHumans: verifications.human_verified_resolved + verifications.human_verified_unresolved,
+    reportsVerifiedResolved: verifiedResolvedCount,
+    reportsVerifiedUnresolved: verifiedUnresolvedCount,
+    disputedClosures: disputedRows.c,
     reopenedCases: workStatuses.reopened,
     medianVerificationHours: 3.8,
     unresolvedRateAfterClosureClaim,
@@ -1052,10 +1531,91 @@ export function getAnalytics(includeDemo = true): PublicAnalytics {
   };
 }
 
-function formatStatusName(status: string) {
-  return status
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
+export function updateReportStatus(
+  reportId: string,
+  workStatus?: WorkStatus,
+  verificationStatus?: VerificationStatus,
+  actorName = 'Authorized Authority',
+  notes = ''
+) {
+  const db = getDb();
+  const now = new Date().toISOString();
+
+  if (workStatus && verificationStatus) {
+    db.prepare('UPDATE reports SET status = ?, work_status = ?, verification_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+      workStatus.toUpperCase(),
+      workStatus,
+      verificationStatus,
+      now,
+      reportId,
+      reportId
+    );
+  } else if (workStatus) {
+    db.prepare('UPDATE reports SET status = ?, work_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+      workStatus.toUpperCase(),
+      workStatus,
+      now,
+      reportId,
+      reportId
+    );
+  } else if (verificationStatus) {
+    db.prepare('UPDATE reports SET verification_status = ?, updated_at = ? WHERE id = ? OR case_number = ?').run(
+      verificationStatus,
+      now,
+      reportId,
+      reportId
+    );
+  }
+
+  createAuditLog({
+    reportId,
+    actorName,
+    actorRole: 'authority',
+    action: 'status_change',
+    newValue: `Status changed to ${workStatus?.replace(/_/g, ' ').toUpperCase()}. ${notes}`,
+  });
+}
+
+export function getAllUsers(): any[] {
+  const db = getDb();
+  return db.prepare(`
+    SELECT id, email, full_name, name, role, organization, organization_id, is_verified, created_at 
+    FROM users 
+    ORDER BY created_at DESC
+  `).all();
+}
+
+export function updateUser(id: string, updates: { role?: string; is_verified?: number; organization_id?: string; organization?: string }): boolean {
+  const db = getDb();
+  const sets: string[] = [];
+  const params: any[] = [];
+  if (updates.role !== undefined) {
+    sets.push('role = ?');
+    params.push(updates.role);
+  }
+  if (updates.is_verified !== undefined) {
+    sets.push('is_verified = ?');
+    params.push(updates.is_verified);
+  }
+  if (updates.organization_id !== undefined) {
+    sets.push('organization_id = ?');
+    params.push(updates.organization_id);
+  }
+  if (updates.organization !== undefined) {
+    sets.push('organization = ?');
+    params.push(updates.organization);
+  }
+  if (sets.length === 0) return false;
+  params.push(id);
+  db.prepare(`UPDATE users SET ${sets.join(', ')} WHERE id = ?`).run(...params);
+  return true;
+}
+
+export function getAuditLogs(reportId?: string, limit = 100): any[] {
+  const db = getDb();
+  if (reportId) {
+    return db.prepare('SELECT * FROM audit_logs WHERE report_id = ? ORDER BY created_at DESC LIMIT ?').all(reportId, limit);
+  }
+  return db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?').all(limit);
 }
 

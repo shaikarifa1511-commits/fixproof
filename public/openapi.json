@@ -1,0 +1,338 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FixProof Civic Infrastructure Verification API",
+    "description": "Comprehensive REST API for FixProof: 'Reported. Repaired. Verified.' A civic technology platform ensuring municipal complaint resolution is backed by cryptographic and AI-verified photographic evidence.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "FixProof Engineering Team",
+      "email": "support@fixproof.civic"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development Server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Signed session token"
+      },
+      "CookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "fixproof_session",
+        "description": "Session cookie"
+      }
+    },
+    "schemas": {
+      "StandardResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "message": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["success", "message"]
+      },
+      "StandardError": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string" },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "details": { "type": "object" }
+            }
+          }
+        },
+        "required": ["success", "message", "error"]
+      },
+      "Report": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "FP-000101" },
+          "caseNumber": { "type": "string", "example": "FP-000101" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string", "enum": ["pothole", "garbage", "footpath", "drainage", "infrastructure"] },
+          "address": { "type": "string" },
+          "latitude": { "type": "number" },
+          "longitude": { "type": "number" },
+          "workStatus": { "type": "string" },
+          "verificationStatus": { "type": "string" },
+          "isSynthetic": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "fullName"],
+                "properties": {
+                  "fullName": { "type": "string", "example": "Aarav Patel" },
+                  "email": { "type": "string", "format": "email", "example": "aarav@example.com" },
+                  "password": { "type": "string", "minLength": 6, "example": "password123" },
+                  "role": { "type": "string", "enum": ["citizen", "authority", "moderator", "admin"], "default": "citizen" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created" },
+          "400": { "description": "Validation failed" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user & issue session token",
+        "tags": ["Authentication"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Logged in successfully" },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Clear session cookie",
+        "tags": ["Authentication"],
+        "responses": { "200": { "description": "Logged out" } }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Get authenticated user profile",
+        "tags": ["Authentication"],
+        "security": [{ "BearerAuth": [] }, { "CookieAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user" },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "summary": "List civic complaints with filters and pagination",
+        "tags": ["Reports"],
+        "parameters": [
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "workStatus", "in": "query", "schema": { "type": "string" } },
+          { "name": "verificationStatus", "in": "query", "schema": { "type": "string" } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50 } }
+        ],
+        "responses": { "200": { "description": "List of reports" } }
+      },
+      "post": {
+        "summary": "Submit a new infrastructure problem report",
+        "tags": ["Reports"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "description", "category", "address", "latitude", "longitude"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" },
+                  "category": { "type": "string" },
+                  "address": { "type": "string" },
+                  "latitude": { "type": "number" },
+                  "longitude": { "type": "number" },
+                  "imageUrl": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Report created" } }
+      }
+    },
+    "/api/reports/{id}": {
+      "get": {
+        "summary": "Get single report detail by ID or Case Number",
+        "tags": ["Reports"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Report details" }, "404": { "description": "Not found" } }
+      },
+      "patch": {
+        "summary": "Update report status (Authority / Moderator)",
+        "tags": ["Reports"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Report updated" } }
+      }
+    },
+    "/api/reports/{id}/claim": {
+      "post": {
+        "summary": "Submit repair completion evidence and trigger AI verification",
+        "tags": ["Repairs & Verification"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["imageUrl"],
+                "properties": {
+                  "imageUrl": { "type": "string" },
+                  "materialsUsed": { "type": "string" },
+                  "contractorName": { "type": "string" },
+                  "notes": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Repair claim submitted and AI verified" } }
+      }
+    },
+    "/api/reports/{id}/dispute": {
+      "post": {
+        "summary": "Citizen challenge against false closure with reinspection evidence",
+        "tags": ["Disputes"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "properties": {
+                  "reason": { "type": "string" },
+                  "reinspectionImageUrl": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Dispute filed" } }
+      }
+    },
+    "/api/reports/{id}/review": {
+      "post": {
+        "summary": "Moderator arbitration and binding ruling",
+        "tags": ["Moderation"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["decision", "notes"],
+                "properties": {
+                  "decision": { "type": "string", "enum": ["VERIFIED_RESOLVED", "NOT_RESOLVED", "PARTIALLY_RESOLVED"] },
+                  "notes": { "type": "string" },
+                  "overrideAi": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Review recorded" } }
+      }
+    },
+    "/api/upload": {
+      "post": {
+        "summary": "Upload evidence photo with magic-byte check, SHA-256 and pHash",
+        "tags": ["Evidence & Anti-Fraud"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Uploaded and hashed" } }
+      }
+    },
+    "/api/evidence/{id}/verify": {
+      "get": {
+        "summary": "Verify physical cryptographic integrity of stored evidence file",
+        "tags": ["Evidence & Anti-Fraud"],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Cryptographic integrity verification result" } }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "summary": "Get aggregate civic transparency statistics",
+        "tags": ["Analytics"],
+        "parameters": [{ "name": "includeDemo", "in": "query", "schema": { "type": "boolean", "default": true } }],
+        "responses": { "200": { "description": "Verification analytics" } }
+      }
+    },
+    "/api/map": {
+      "get": {
+        "summary": "Non-PII sanitized geo markers for map rendering",
+        "tags": ["Map"],
+        "responses": { "200": { "description": "Map markers" } }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "summary": "List all registered users (Moderator / Admin)",
+        "tags": ["Admin"],
+        "responses": { "200": { "description": "User list" } }
+      },
+      "patch": {
+        "summary": "Update user roles and verification status (e.g. approve municipal official)",
+        "tags": ["Admin"],
+        "responses": { "200": { "description": "User updated" } }
+      }
+    },
+    "/api/admin/audit-logs": {
+      "get": {
+        "summary": "Retrieve immutable audit logs (Moderator / Admin)",
+        "tags": ["Admin"],
+        "responses": { "200": { "description": "Audit trail entries" } }
+      }
+    }
+  }
+}
+

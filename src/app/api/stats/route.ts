@@ -6,9 +6,21 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const includeDemo = searchParams.get('includeDemo') !== 'false';
     const stats = getAnalytics(includeDemo);
-    return NextResponse.json({ success: true, stats });
+
+    return NextResponse.json({
+      success: true,
+      message: 'Civic analytics and verification metrics retrieved successfully',
+      data: { stats },
+      stats, // Backward compatibility
+    });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message || 'Failed to retrieve analytics',
+        error: { code: 'INTERNAL_SERVER_ERROR' },
+      },
+      { status: 500 }
+    );
   }
 }
-

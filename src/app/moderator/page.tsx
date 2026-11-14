@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
+import { useLanguage } from '@/lib/i18n/context';
 import { Report } from '@/lib/types';
 import { VerificationStatusBadge, WorkStatusBadge } from '@/components/StatusBadge';
 import {
@@ -25,6 +26,7 @@ import {
 
 export default function ModeratorDashboardPage() {
   const { currentUser } = useAuth();
+  const { t } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'disputed' | 'flagged' | 'all'>('disputed');
@@ -123,7 +125,7 @@ export default function ModeratorDashboardPage() {
               Independent Civic Review Board
             </span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight">Civic Moderation & Dispute Arbitration Hub</h1>
+          <h1 className="text-2xl font-black tracking-tight">{t?.moderationPortal || 'Civic Moderation & Dispute Arbitration Hub'}</h1>
           <p className="text-xs text-purple-300">
             Arbitrate contested municipal closures, evaluate fraud & duplicate alerts, and record documented human verdicts.
           </p>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
+import { useLanguage } from '@/lib/i18n/context';
 import { Report, WorkStatus } from '@/lib/types';
 import { VerificationStatusBadge, WorkStatusBadge } from '@/components/StatusBadge';
 import {
@@ -22,6 +23,7 @@ import {
 
 export default function AuthorityDashboardPage() {
   const { currentUser } = useAuth();
+  const { t } = useLanguage();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -95,7 +97,7 @@ export default function AuthorityDashboardPage() {
               Authorized Municipal Maintenance Operations
             </span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight">Authority Repair Dispatch & Evidence Hub</h1>
+          <h1 className="text-2xl font-black tracking-tight">{t?.authorityPortal || 'Authority Repair Dispatch & Evidence Hub'}</h1>
           <p className="text-xs text-slate-400">
             Log dispatch status, upload post-repair verification photos, and inspect AI comparability scores.
           </p>

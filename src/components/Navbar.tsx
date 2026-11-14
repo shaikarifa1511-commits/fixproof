@@ -28,17 +28,17 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/reports', label: 'All Reports', icon: FileText },
-    { href: '/map', label: 'Civic Map', icon: MapPin },
-    { href: '/report', label: 'Report Defect', icon: PlusCircle, highlight: true },
-    { href: '/my-reports', label: 'My Cases', icon: UserCheck },
-    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+    { href: '/reports', label: t.allReports || 'All Reports', icon: FileText },
+    { href: '/map', label: t.civicMap || 'Civic Map', icon: MapPin },
+    { href: '/report', label: t.reportDefect || 'Report Defect', icon: PlusCircle, highlight: true },
+    { href: '/my-reports', label: t.myCases || 'My Cases', icon: UserCheck },
+    { href: '/analytics', label: t.analytics || 'Analytics', icon: BarChart3 },
   ];
 
   if (currentUser.role === 'authority') {
-    navLinks.push({ href: '/authority', label: 'Authority Queue', icon: Wrench });
+    navLinks.push({ href: '/authority', label: t.authorityQueue || 'Authority Queue', icon: Wrench });
   } else if (currentUser.role === 'moderator') {
-    navLinks.push({ href: '/moderator', label: 'Moderation Hub', icon: Shield });
+    navLinks.push({ href: '/moderator', label: t.moderationHub || 'Moderation Hub', icon: Shield });
   }
 
   return (
@@ -60,7 +60,7 @@ export function Navbar() {
                 </span>
               </div>
               <p className="text-[10px] text-slate-500 font-medium tracking-tight -mt-0.5 hidden sm:block">
-                Reported. Repaired. Verified.
+                {t.tagline || 'Reported. Repaired. Verified.'}
               </p>
             </div>
           </Link>

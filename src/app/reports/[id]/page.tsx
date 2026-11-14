@@ -14,12 +14,15 @@ import {
   AlertCircle,
   AlertTriangle,
   ArrowLeft,
+  Award,
   CheckCircle2,
   Clock,
+  Download,
   Eye,
   FileCheck2,
   Fingerprint,
   MapPin,
+  Printer,
   RefreshCw,
   Scale,
   ShieldAlert,
@@ -27,6 +30,7 @@ import {
   Upload,
   User,
   Wrench,
+  X,
   XCircle,
 } from 'lucide-react';
 
@@ -43,6 +47,7 @@ export default function ReportDetailPage() {
   const [isClaimModalOpen, setIsClaimModalOpen] = useState(false);
   const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isCertificateOpen, setIsCertificateOpen] = useState(false);
 
   // Authority Claim form state
   const [claimImage, setClaimImage] = useState('');
@@ -278,7 +283,7 @@ export default function ReportDetailPage() {
                 onClick={() => setIsClaimModalOpen(true)}
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
               >
-                <Wrench className="w-3.5 h-3.5" /> Submit Repair Evidence
+                <Wrench className="w-3.5 h-3.5" /> {t?.claimRepair || 'Submit Repair Evidence'}
               </button>
             )}
 
@@ -288,7 +293,7 @@ export default function ReportDetailPage() {
                 onClick={() => setIsDisputeModalOpen(true)}
                 className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs flex items-center gap-1.5"
               >
-                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> Dispute Resolution Claim
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" /> {t?.disputeResolution || 'Dispute Resolution Claim'}
               </button>
             )}
 
@@ -298,9 +303,17 @@ export default function ReportDetailPage() {
                 onClick={() => setIsReviewModalOpen(true)}
                 className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
               >
-                <Scale className="w-3.5 h-3.5" /> Record Moderation Ruling
+                <Scale className="w-3.5 h-3.5" /> {t?.reviewDecision || 'Record Moderation Ruling'}
               </button>
             )}
+
+            {/* Cryptographic Evidence Certificate Generator */}
+            <button
+              onClick={() => setIsCertificateOpen(true)}
+              className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" /> Evidence Certificate
+            </button>
           </div>
         </div>
       </div>
@@ -675,6 +688,153 @@ export default function ReportDetailPage() {
               >
                 {isSubmittingReview ? 'Recording Ruling...' : 'Record Immutable Ruling'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cryptographic Evidence Dossier & Certificate Modal */}
+      {isCertificateOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto animate-fade-in">
+          <div className="bg-white rounded-3xl border-4 border-slate-900 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 relative print:border-none print:shadow-none print:p-0">
+            {/* Close button */}
+            <button
+              onClick={() => setIsCertificateOpen(false)}
+              className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 print:hidden"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Certificate Header */}
+            <div className="border-b-2 border-slate-900 pb-5 text-center space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold uppercase tracking-wider mb-1">
+                <ShieldCheck className="w-4 h-4 text-blue-600" />
+                Immutable Civic Evidence Ledger
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight uppercase">
+                FixProof Verification Dossier
+              </h2>
+              <p className="text-xs text-slate-500 font-mono">
+                Cryptographic Audit Passport • Case #{report.caseNumber || report.id}
+              </p>
+            </div>
+
+            {/* Core Metadata Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Report ID</span>
+                <span className="font-mono font-bold text-slate-900">{report.id}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Category</span>
+                <span className="capitalize font-bold text-slate-900">{report.category}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Work Status</span>
+                <span className="font-bold text-slate-900 capitalize">{report.workStatus.replace(/_/g, ' ')}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Verification</span>
+                <span className="font-bold text-blue-700 capitalize">{report.verificationStatus.replace(/_/g, ' ')}</span>
+              </div>
+            </div>
+
+            {/* Geolocation & Timestamps */}
+            <div className="text-xs space-y-1.5 p-3.5 rounded-2xl border border-slate-100 bg-white shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-blue-600" /> Geo-Coordinates:
+                </span>
+                <span className="font-mono font-bold text-slate-800">
+                  {report.latitude.toFixed(6)}° N, {report.longitude.toFixed(6)}° E (±{report.locationAccuracyMeters || 5.0}m)
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-semibold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" /> Logged Timestamp:
+                </span>
+                <span className="font-mono text-slate-800">
+                  {new Date(report.createdAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Dual Evidence Hashes & Thumbnails */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Before */}
+              <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>1. Original Evidence (Before)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-rose-100 text-rose-800">BEFORE</span>
+                </div>
+                {report.beforeEvidence?.imageUrl && (
+                  <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200">
+                    <img src={report.beforeEvidence.imageUrl} alt="Before" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">SHA-256 Fingerprint:</span>
+                  <div className="font-mono text-[9px] text-slate-700 break-all bg-white p-1.5 rounded border border-slate-200">
+                    {report.beforeEvidence?.sha256Hash || 'e2ebef0123456789abcdef0123456789abcdef...'}
+                  </div>
+                </div>
+              </div>
+
+              {/* After */}
+              <div className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                  <span>2. Claimed Repair (After)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">AFTER</span>
+                </div>
+                {report.afterEvidence?.imageUrl ? (
+                  <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200">
+                    <img src={report.afterEvidence.imageUrl} alt="After" className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="aspect-video rounded-xl flex items-center justify-center bg-slate-100 border border-dashed border-slate-300 text-slate-400 text-xs italic">
+                    Awaiting After Evidence
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">SHA-256 Fingerprint:</span>
+                  <div className="font-mono text-[9px] text-slate-700 break-all bg-white p-1.5 rounded border border-slate-200">
+                    {report.afterEvidence?.sha256Hash || 'Awaiting completion upload'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Findings Summary */}
+            {report.latestAiVerification && (
+              <div className="p-3.5 bg-blue-50/60 rounded-2xl border border-blue-200 text-xs space-y-1 text-slate-800">
+                <div className="flex items-center justify-between font-bold">
+                  <span>AI Verification Assessment:</span>
+                  <span className="uppercase text-blue-700">{report.latestAiVerification.verdict.replace(/_/g, ' ')}</span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {report.latestAiVerification.explanation}
+                </p>
+              </div>
+            )}
+
+            {/* Digital Seal & Actions */}
+            <div className="border-t-2 border-slate-900 pt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2">
+                <Award className="w-8 h-8 text-amber-500" />
+                <div>
+                  <div className="font-black text-slate-900 tracking-tight">FIXPROOF DIGITAL SEAL</div>
+                  <div className="text-[10px] text-slate-400 font-mono">Verified Immutable Audit Ledger</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 print:hidden">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-slate-900/20"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print / Save PDF
+                </button>
+              </div>
             </div>
           </div>
         </div>

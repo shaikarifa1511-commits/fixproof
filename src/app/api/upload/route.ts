@@ -1,74 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
-import { calculatePerceptualHash, calculateSha256 } from '@/lib/ai/hasher';
-
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
+import { storeImageFile } from '@/lib/storage';
+import { calculatePerceptualHash } from '@/lib/ai/hasher';
+import { addEvidenceAsset, getReportById } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    }
-
     const contentType = req.headers.get('content-type') || '';
+    let buffer: Buffer;
+    let originalFilename = 'evidence.jpg';
+    let reportId: string | undefined;
+    let stage: 'before' | 'after' | 'reinspection' = 'before';
+    let latitude: number | undefined;
+    let longitude: number | undefined;
+    let accuracyMeters: number | undefined;
+    let notes: string | undefined;
 
     if (contentType.includes('application/json')) {
-      const { imageBase64, filename } = await req.json();
-      if (!imageBase64) {
-        return NextResponse.json({ success: false, error: 'No image provided' }, { status: 400 });
+      const body = await req.json();
+      if (!body.imageBase64 && !body.imageUrl) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'No image data provided',
+            error: { code: 'INVALID_PAYLOAD' },
+          },
+          { status: 400 }
+        );
       }
 
-      const cleanData = imageBase64.includes('base64,')
-        ? imageBase64.split('base64,')[1]
-        : imageBase64;
-      const buffer = Buffer.from(cleanData, 'base64');
-      const sha256 = calculateSha256(buffer);
-      const pHash = calculatePerceptualHash(buffer);
+      reportId = body.reportId;
+      stage = body.stage || 'before';
+      latitude = body.latitude;
+      longitude = body.longitude;
+      accuracyMeters = body.accuracyMeters;
+      notes = body.notes;
 
-      const ext = filename?.endsWith('.png') ? 'png' : 'jpg';
-      const diskFilename = `${sha256.substring(0, 16)}.${ext}`;
-      const filePath = path.join(UPLOAD_DIR, diskFilename);
-
-      fs.writeFileSync(filePath, buffer);
-
-      return NextResponse.json({
-        success: true,
-        imageUrl: `/uploads/${diskFilename}`,
-        sha256Hash: sha256,
-        perceptualHash: pHash,
-        fileSizeBytes: buffer.length,
-      });
+      const raw = body.imageBase64 || body.imageUrl;
+      const cleanData = raw.includes('base64,') ? raw.split('base64,')[1] : raw;
+      buffer = Buffer.from(cleanData, 'base64');
+      originalFilename = body.filename || 'capture.jpg';
     } else {
       // Multipart form data
       const formData = await req.formData();
       const file = formData.get('file') as File | null;
       if (!file) {
-        return NextResponse.json({ success: false, error: 'No file received' }, { status: 400 });
+        return NextResponse.json(
+          {
+            success: false,
+            message: 'No file received in form submission',
+            error: { code: 'FILE_MISSING' },
+          },
+          { status: 400 }
+        );
       }
 
+      reportId = (formData.get('reportId') as string) || undefined;
+      stage = (formData.get('stage') as any) || 'before';
+      originalFilename = file.name;
       const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const sha256 = calculateSha256(buffer);
-      const pHash = calculatePerceptualHash(buffer);
-
-      const ext = file.name.split('.').pop() || 'jpg';
-      const diskFilename = `${sha256.substring(0, 16)}.${ext}`;
-      const filePath = path.join(UPLOAD_DIR, diskFilename);
-
-      fs.writeFileSync(filePath, buffer);
-
-      return NextResponse.json({
-        success: true,
-        imageUrl: `/uploads/${diskFilename}`,
-        sha256Hash: sha256,
-        perceptualHash: pHash,
-        fileSizeBytes: buffer.length,
-      });
+      buffer = Buffer.from(bytes);
     }
+
+    // Validate magic bytes & store safely
+    const stored = storeImageFile(buffer, originalFilename);
+    const pHash = calculatePerceptualHash(buffer);
+
+    // If reportId provided, save directly to database
+    let assetId: string | undefined;
+    if (reportId) {
+      const asset = addEvidenceAsset({
+        reportId,
+        stage,
+        imageUrl: stored.publicUrl,
+        sha256Hash: stored.sha256Hash,
+        perceptualHash: pHash,
+        latitude,
+        longitude,
+        accuracyMeters: accuracyMeters || 5.0,
+        notes,
+      });
+      assetId = asset.id;
+    }
+
+    const payload = {
+      id: assetId,
+      imageUrl: stored.publicUrl,
+      sha256Hash: stored.sha256Hash,
+      perceptualHash: pHash,
+      fileSizeBytes: stored.fileSizeBytes,
+      mimeType: stored.mimeType,
+      storagePath: stored.storagePath,
+    };
+
+    return NextResponse.json({
+      success: true,
+      message: 'Image uploaded, cryptographically hashed, and verified successfully.',
+      data: payload,
+      // Backward compatibility top-level fields for existing frontend
+      ...payload,
+    });
   } catch (err: any) {
-    console.error('Upload error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error('Evidence upload error:', err);
+    return NextResponse.json(
+      {
+        success: false,
+        message: err.message || 'Image upload failed',
+        error: { code: 'UPLOAD_FAILED', details: err.message },
+      },
+      { status: 400 }
+    );
   }
 }
-

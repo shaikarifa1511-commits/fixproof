@@ -38,8 +38,8 @@ export default function HomePage() {
         const statsData = await statsRes.json();
         const reportsData = await reportsRes.json();
 
-        if (statsData.success) setStats(statsData.stats);
-        if (reportsData.success) setFeaturedReports(reportsData.reports);
+        if (statsData.success) setStats(statsData.stats || statsData.data?.stats);
+        if (reportsData.success) setFeaturedReports(reportsData.reports || reportsData.data?.reports || []);
       } catch (err) {
         console.error('Failed to load initial data:', err);
       } finally {
@@ -60,22 +60,20 @@ export default function HomePage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-400/30 text-blue-300 text-xs font-semibold backdrop-blur-md">
             <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-            <span>Civic AI Verification Engine</span>
+            <span>{t?.heroAiBadge || 'Civic AI Verification Engine'}</span>
             <span className="w-1 h-1 rounded-full bg-blue-400" />
-            <span className="text-blue-200">Independent Evidence Ledger</span>
+            <span className="text-blue-200">{t?.heroLedger || 'Independent Evidence Ledger'}</span>
           </div>
 
           {/* Heading */}
           <h1 className="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight">
-            Reported. Repaired.{' '}
-            <span className="bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
-              Verified.
-            </span>
+            {t?.tagline || 'Reported. Repaired. Verified.'}
           </h1>
 
           {/* Subheading / Core Principle */}
           <p className="max-w-3xl mx-auto text-base sm:text-lg text-slate-300 leading-relaxed font-normal">
-            A complaint being marked <span className="font-semibold text-white">"Fixed"</span> does not prove the underlying problem was actually fixed. FixProof empowers citizens and authorities to assess repair claims with before/after photographic proof and transparent computer vision.
+            {t?.subTagline ||
+              'A complaint being marked "Fixed" does not prove the underlying problem was actually fixed. FixProof empowers citizens and authorities to assess repair claims with before/after photographic proof and transparent computer vision.'}
           </p>
 
           {/* CTAs */}
@@ -85,7 +83,7 @@ export default function HomePage() {
               className="px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-xl shadow-blue-600/30 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
             >
               <PlusCircle className="w-4 h-4" />
-              Report a Defect
+              {t?.reportProblem || 'Report a Defect'}
             </Link>
 
             <Link
@@ -93,7 +91,7 @@ export default function HomePage() {
               className="px-6 py-3.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 font-semibold text-sm backdrop-blur-md flex items-center gap-2 transition-all"
             >
               <MapPin className="w-4 h-4 text-emerald-400" />
-              Explore Civic Map
+              {t?.exploreNearby || 'Explore Civic Map'}
             </Link>
 
             <Link
@@ -101,7 +99,7 @@ export default function HomePage() {
               className="px-6 py-3.5 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 font-semibold text-sm backdrop-blur-md flex items-center gap-2 transition-all"
             >
               <Eye className="w-4 h-4 text-rose-400" />
-              Inspect AI Comparison Demo
+              {t?.inspectAiDemo || 'Inspect AI Comparison Demo'}
             </Link>
           </div>
         </div>
@@ -112,26 +110,34 @@ export default function HomePage() {
             <div className="text-2xl sm:text-3xl font-black text-white">
               {stats?.totalReports ?? 10}
             </div>
-            <div className="text-xs text-slate-400 font-medium mt-1">Cases Tracked</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">
+              {t?.casesTracked || 'Cases Tracked'}
+            </div>
           </div>
 
           <div className="bg-slate-800/60 border border-slate-700/60 backdrop-blur-md rounded-2xl p-4 text-center">
             <div className="text-2xl sm:text-3xl font-black text-emerald-400">
               {stats?.reportsVerifiedResolved ?? 2}
             </div>
-            <div className="text-xs text-slate-400 font-medium mt-1">Verified Resolved</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">
+              {t?.verifiedResolvedStat || 'Verified Resolved'}
+            </div>
           </div>
 
           <div className="bg-slate-800/60 border border-slate-700/60 backdrop-blur-md rounded-2xl p-4 text-center">
             <div className="text-2xl sm:text-3xl font-black text-rose-400">
               {stats?.unresolvedRateAfterClosureClaim ?? 67}%
             </div>
-            <div className="text-xs text-slate-400 font-medium mt-1">Unresolved Closure Rate</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">
+              {t?.unresolvedRateStat || 'Unresolved Closure Rate'}
+            </div>
           </div>
 
           <div className="bg-slate-800/60 border border-slate-700/60 backdrop-blur-md rounded-2xl p-4 text-center">
             <div className="text-2xl sm:text-3xl font-black text-cyan-400">100%</div>
-            <div className="text-xs text-slate-400 font-medium mt-1">Tamper Hashed (SHA-256)</div>
+            <div className="text-xs text-slate-400 font-medium mt-1">
+              {t?.tamperHashedStat || 'Tamper Hashed (SHA-256)'}
+            </div>
           </div>
         </div>
       </section>
@@ -140,10 +146,11 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-8">
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-            How FixProof Solves the Civic Evidence Gap
+            {t?.fiveQuestionsTitle || 'How FixProof Solves the Civic Evidence Gap'}
           </h2>
           <p className="text-sm text-slate-500 mt-2">
-            Every case is scrutinized against five objective verification tests:
+            {t?.fiveQuestionsSubtitle ||
+              'Every case is scrutinized against five objective verification tests:'}
           </p>
         </div>
 
@@ -151,36 +158,36 @@ export default function HomePage() {
           {[
             {
               num: '1',
-              q: 'What was reported?',
-              desc: 'Immutable original photograph, GPS geostamp, category & timestamp hash.',
+              q: t?.q1Title || 'What was reported?',
+              desc: t?.q1Desc || 'Immutable original photograph, GPS geostamp, category & timestamp hash.',
               icon: FileText,
               color: 'text-blue-600 bg-blue-50 border-blue-200',
             },
             {
               num: '2',
-              q: 'What is the repair proof?',
-              desc: 'After-photo submitted with authorized agency credentials and materials used.',
+              q: t?.q2Title || 'What is the repair proof?',
+              desc: t?.q2Desc || 'After-photo submitted with authorized agency credentials and materials used.',
               icon: FileCheck2,
               color: 'text-indigo-600 bg-indigo-50 border-indigo-200',
             },
             {
               num: '3',
-              q: 'Is it the same scene?',
-              desc: 'Stationary landmark alignment, curb matching, and GPS distance threshold checks.',
+              q: t?.q3Title || 'Is it the same scene?',
+              desc: t?.q3Desc || 'Stationary landmark alignment, curb matching, and GPS distance threshold checks.',
               icon: Eye,
               color: 'text-purple-600 bg-purple-50 border-purple-200',
             },
             {
               num: '4',
-              q: 'Is the defect resolved?',
-              desc: 'AI surface texture, asphalt contour, and cavity depth analysis.',
+              q: t?.q4Title || 'Is the defect resolved?',
+              desc: t?.q4Desc || 'AI surface texture, asphalt contour, and cavity depth analysis.',
               icon: ShieldCheck,
               color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
             },
             {
               num: '5',
-              q: 'What if it fails?',
-              desc: 'Citizens challenge false closures, upload reinspections, and trigger human moderation.',
+              q: t?.q5Title || 'What if it fails?',
+              desc: t?.q5Desc || 'Citizens challenge false closures, upload reinspections, and trigger human moderation.',
               icon: AlertTriangle,
               color: 'text-rose-600 bg-rose-50 border-rose-200',
             },
@@ -208,9 +215,12 @@ export default function HomePage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">Featured Civic Cases & AI Audits</h2>
+            <h2 className="text-xl font-bold text-slate-900">
+              {t?.featuredCasesTitle || 'Featured Civic Cases & AI Audits'}
+            </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Explore live test cases comparing claimed municipal closures against actual visual findings.
+              {t?.featuredCasesSubtitle ||
+                'Explore live test cases comparing claimed municipal closures against actual visual findings.'}
             </p>
           </div>
 
@@ -218,7 +228,7 @@ export default function HomePage() {
             href="/reports"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700"
           >
-            View All Reports ({stats?.totalReports ?? 10}) <ChevronRight className="w-4 h-4" />
+            {t?.viewAllReportsLink || 'View All Reports'} ({stats?.totalReports ?? 10}) <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
 
@@ -262,7 +272,7 @@ export default function HomePage() {
 
                 {report.isSynthetic && (
                   <div className="absolute bottom-2 left-2 bg-slate-950/80 text-slate-300 text-[9px] font-semibold px-2 py-0.5 rounded backdrop-blur-xs">
-                    Synthetic Demo
+                    {t?.demoDataLabel || 'Synthetic Demo'}
                   </div>
                 )}
               </div>
@@ -271,7 +281,9 @@ export default function HomePage() {
               <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-mono font-bold text-slate-700">{report.id}</span>
+                    <span className="font-mono font-bold text-slate-700">
+                      {report.caseNumber || report.id}
+                    </span>
                     <span className="capitalize font-medium">{report.category}</span>
                   </div>
 
@@ -301,7 +313,7 @@ export default function HomePage() {
                     className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-xs font-bold inline-flex items-center gap-1"
                     title="Open AI Comparison Slider"
                   >
-                    Compare <ArrowRight className="w-3.5 h-3.5" />
+                    {t?.compareEvidence || 'Compare'} <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>
@@ -314,7 +326,11 @@ export default function HomePage() {
       <section className="max-w-4xl mx-auto px-4">
         <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
           <div>
-            <span className="font-bold text-slate-800">Demonstration Environment Active:</span> Preloaded with 10 synthetic test cases spanning verified repairs, false closures, partial work, optical blur, and photographic duplicate fraud detection.
+            <span className="font-bold text-slate-800">
+              {t?.demoBannerTitle || 'Demonstration Environment Active:'}
+            </span>{' '}
+            {t?.demoBannerDesc ||
+              'Preloaded with 10 synthetic test cases spanning verified repairs, false closures, partial work, optical blur, and photographic duplicate fraud detection.'}
           </div>
           <button
             onClick={async () => {
@@ -323,11 +339,10 @@ export default function HomePage() {
             }}
             className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 font-semibold text-slate-700 hover:bg-slate-50 shadow-2xs whitespace-nowrap flex items-center gap-1.5"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Reset Demo Cases
+            <RefreshCw className="w-3.5 h-3.5" /> {t?.resetDemoBtn || 'Reset Demo Cases'}
           </button>
         </div>
       </section>
     </div>
   );
 }
-

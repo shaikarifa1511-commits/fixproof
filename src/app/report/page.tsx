@@ -15,6 +15,8 @@ import {
   FileCheck,
   Fingerprint,
   MapPin,
+  Mic,
+  MicOff,
   Sparkles,
   Upload,
 } from 'lucide-react';
@@ -28,7 +30,7 @@ const LeafletMap = dynamic(
 export default function ReportProblemPage() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
 
   const [step, setStep] = useState<number>(1);
   const [category, setCategory] = useState<ProblemCategory>('pothole');
@@ -46,36 +48,81 @@ export default function ReportProblemPage() {
   const [accuracy, setAccuracy] = useState<number>(4.5);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isVoiceRecording, setIsVoiceRecording] = useState<'title' | 'description' | null>(null);
+
+  const startVoiceInput = (target: 'title' | 'description') => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please use Google Chrome or Edge.');
+      return;
+    }
+
+    if (isVoiceRecording) {
+      setIsVoiceRecording(null);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang =
+        language === 'kn' ? 'kn-IN' : language === 'te' ? 'te-IN' : language === 'hi' ? 'hi-IN' : 'en-IN';
+
+      recognition.onstart = () => setIsVoiceRecording(target);
+      recognition.onend = () => setIsVoiceRecording(null);
+      recognition.onerror = () => setIsVoiceRecording(null);
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        if (transcript) {
+          if (target === 'title') {
+            setTitle((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          } else {
+            setDescription((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          }
+        }
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error('Speech input error:', err);
+      setIsVoiceRecording(null);
+    }
+  };
 
   // Category selection options
   const categories: Array<{ id: ProblemCategory; title: string; desc: string; icon: string }> = [
     {
       id: 'pothole',
-      title: 'Pothole & Road Hazard',
+      title: t?.pothole || 'Pothole & Road Hazard',
       desc: 'Craters, road depressions, exposed aggregate, sharp edges',
       icon: '🕳️',
     },
     {
       id: 'garbage',
-      title: 'Garbage & Solid Waste Dump',
+      title: t?.garbage || 'Garbage & Solid Waste Dump',
       desc: 'Uncollected mounds, overflow bins, sidewalk litter',
       icon: '🗑️',
     },
     {
       id: 'footpath',
-      title: 'Damaged Sidewalk / Footpath',
+      title: t?.footpath || 'Damaged Sidewalk / Footpath',
       desc: 'Broken slabs, tripping hazards, missing curb stones',
       icon: '🚶',
     },
     {
       id: 'drainage',
-      title: 'Broken Drainage / Drain Covers',
+      title: t?.drainage || 'Broken Drainage / Drain Covers',
       desc: 'Missing storm drain grates, clogged culverts, deep open pits',
       icon: '🌊',
     },
     {
       id: 'infrastructure',
-      title: 'Public Infrastructure Damage',
+      title: t?.infrastructure || 'Public Infrastructure Damage',
       desc: 'Damaged guardrails, leaning utility poles, street furniture',
       icon: '🏗️',
     },
@@ -482,9 +529,31 @@ export default function ReportProblemPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Complaint Title
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Complaint Title
+                </label>
+                <button
+                  type="button"
+                  onClick={() => startVoiceInput('title')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                    isVoiceRecording === 'title'
+                      ? 'bg-rose-50 text-rose-600 border-rose-300 animate-pulse'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Speak in your language"
+                >
+                  {isVoiceRecording === 'title' ? (
+                    <>
+                      <MicOff className="w-3 h-3 text-rose-500" /> Listening...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3 h-3 text-blue-600" /> Speak Title
+                    </>
+                  )}
+                </button>
+              </div>
               <input
                 type="text"
                 value={title}
@@ -495,9 +564,31 @@ export default function ReportProblemPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Detailed Observation
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Detailed Observation
+                </label>
+                <button
+                  type="button"
+                  onClick={() => startVoiceInput('description')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                    isVoiceRecording === 'description'
+                      ? 'bg-rose-50 text-rose-600 border-rose-300 animate-pulse'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Speak in your language"
+                >
+                  {isVoiceRecording === 'description' ? (
+                    <>
+                      <MicOff className="w-3 h-3 text-rose-500" /> Listening...
+                    </>
+                  ) : (
+                    <>
+                      <Mic className="w-3 h-3 text-blue-600" /> Speak Description
+                    </>
+                  )}
+                </button>
+              </div>
               <textarea
                 rows={3}
                 value={description}

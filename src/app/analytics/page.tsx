@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useLanguage } from '@/lib/i18n/context';
 import { PublicAnalytics } from '@/lib/types';
 import {
   AlertCircle,
@@ -23,6 +24,7 @@ import {
 } from 'lucide-react';
 
 export default function PublicAnalyticsPage() {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<PublicAnalytics | null>(null);
   const [includeDemo, setIncludeDemo] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -63,7 +65,7 @@ export default function PublicAnalyticsPage() {
             <BarChart3 className="w-4 h-4" /> Transparency & Verification Ledger
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Public Civic Verification Analytics
+            {t?.publicDashboard || 'Public Civic Verification Analytics'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Empirical measurements of reported municipal defects, repair claims, and independent AI/human audits.
