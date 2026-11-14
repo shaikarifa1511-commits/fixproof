@@ -28,7 +28,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          message: `Validation failed: ${parseResult.error.errors[0]?.message}`,
+          message: `Validation failed: ${(parseResult.error as any).errors?.[0]?.message || parseResult.error.message}`,
           error: {
             code: 'VALIDATION_ERROR',
             details: parseResult.error.format(),

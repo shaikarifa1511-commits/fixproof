@@ -39,6 +39,14 @@ export const DEMO_USERS: Record<UserRole, User> = {
     organization: 'Civic Observer',
     createdAt: '2026-11-01T09:00:00Z',
   },
+  admin: {
+    id: 'user_admin',
+    name: 'Chief Municipal Auditor',
+    email: 'auditor.admin@fixproof.org',
+    role: 'admin',
+    organization: 'Civic Audit & Vigilance Commission',
+    createdAt: '2026-11-01T09:00:00Z',
+  },
 };
 
 interface AuthContextType {

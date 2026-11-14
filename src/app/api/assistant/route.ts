@@ -134,6 +134,15 @@ function generateCivicAssistantReply(query: string, context?: any, caseInfo?: st
 
   // Kannada responses
   if (lang === 'kn') {
+    if (q.includes('official') || q.includes('contact') || q.includes('helpline') || q.includes('ಅಧಿಕಾರಿ') || q.includes('ಸಂಪರ್ಕ') || q.includes('ಫೋನ್') || q.includes('ಸಹಾಯವಾಣಿ')) {
+      return `### ಸರ್ಕಾರಿ ಅಧಿಕಾರಿಗಳು & ತುರ್ತು ಸಹಾಯವಾಣಿಗಳು:
+- **1533 (ಉಚಿತ ಕರೆ)**: ರಸ್ತೆ ಗುಂಡಿ ಮತ್ತು ಪಾಲಿಕೆ ದೂರುಗಳ 24/7 ಸಹಾಯವಾಣಿ.
+- **1916 (BWSSB)**: ನೀರು ಸರಬರಾಜು ಮತ್ತು ಒಳಚರಂಡಿ ತುರ್ತು ಸಹಾಯವಾಣಿ.
+- **1912 (BESCOM)**: ವಿದ್ಯುತ್ ತಂತಿ ಮತ್ತು ಬೀದಿದೀಪಗಳ ಸಹಾಯವಾಣಿ.
+- **112**: ರಾಷ್ಟ್ರೀಯ ತುರ್ತು ಪ್ರತಿಕ್ರಿಯಾ ವ್ಯವಸ್ಥೆ (ERSS).
+
+ಅಧಿಕಾರಿಗಳ ಪೂರ್ಣ ಪಟ್ಟಿ, ಇಮೇಲ್, ವಾಟ್ಸಾಪ್ ಮತ್ತು ವಾರ್ಡ್ ವ್ಯಾಪ್ತಿಗಾಗಿ ನಮ್ಮ [ಸರ್ಕಾರಿ ಸಂಪರ್ಕಗಳ ಡೈರೆಕ್ಟರಿ](/contacts) ನೋಡಿ.`;
+    }
     if (q.includes('dispute') || q.includes('challenge') || q.includes('ಆಕ್ಷೇಪ') || q.includes('ಪ್ರಶ್ನಿಸು')) {
       return `### ತಪ್ಪು ಮುಕ್ತಾಯವನ್ನು ಪ್ರಶ್ನಿಸುವ ವಿಧಾನ:
 1. **ಪ್ರಕರಣದ ಪುಟಕ್ಕೆ ಹೋಗಿ**: ನಿಮ್ಮ ದೂರಿನ ವಿವರಗಳನ್ನು ತೆರೆಯಿರಿ.
@@ -158,6 +167,15 @@ function generateCivicAssistantReply(query: string, context?: any, caseInfo?: st
 
   // Telugu responses
   if (lang === 'te') {
+    if (q.includes('official') || q.includes('contact') || q.includes('helpline') || q.includes('అధికారి') || q.includes('సంప్రదింపు') || q.includes('నంబరు') || q.includes('హెల్ప్‌లైన్')) {
+      return `### మున్సిపల్ అధికారులు & అత్యవసర హెల్ప్‌లైన్లు:
+- **1533 (టోల్-ఫ్రీ)**: మున్సిపల్ రోడ్డు గుంతలు మరియు పారిశుధ్య 24/7 హెల్ప్‌లైన్.
+- **1916 (HMWSSB/వాటర్ బోర్డు)**: మురుగునీరు మరియు కాలువల అత్యవసర హెల్ప్‌లైన్.
+- **1912 (విద్యుత్ శాఖ)**: వైర్లు మరియు వీధి దీపాల ఫిర్యాదులు.
+- **112**: జాతీయ అత్యవసర సహాయం (పోలీస్, విపత్తు).
+
+మున్సిపల్ కమిషనర్లు, వార్డు ఇంజనీర్లు మరియు వాట్సాప్ డెస్క్ కోసం మా [ప్రభుత్వ సంప్రదింపుల డైరెక్టరీ](/contacts) చూడండి.`;
+    }
     if (q.includes('dispute') || q.includes('challenge') || q.includes('సవాలు') || q.includes('ఫిర్యాదు')) {
       return `### తప్పుడు పరిష్కారాన్ని సవాలు చేసే విధానం:
 1. **కేస్ పేజీకి వెళ్లండి**: మీ ఫిర్యాదు వివరాలను తెరవండి.
@@ -182,6 +200,15 @@ function generateCivicAssistantReply(query: string, context?: any, caseInfo?: st
 
   // Hindi responses
   if (lang === 'hi') {
+    if (q.includes('official') || q.includes('contact') || q.includes('helpline') || q.includes('अधिकारी') || q.includes('संपर्क') || q.includes('फोन') || q.includes('हेल्पलाइन')) {
+      return `### नगर निगम अधिकारी और 24/7 आपातकालीन हेल्पलाइन:
+- **1533 (टोल-फ्री)**: नगर निगम गड्ढे और सड़क मरम्मत 24/7 हेल्पलाइन।
+- **1916 (जल बोर्ड)**: जल आपूर्ति और सीवर लाइन आपातकालीन सेवा।
+- **1912 (विद्युत बोर्ड)**: खुले तार और स्ट्रीट लाइट नियंत्रण कक्ष।
+- **112**: राष्ट्रीय आपातकालीन प्रतिक्रिया प्रणाली।
+
+सभी वार्ड अधिकारियों के सीधे नंबर और व्हाट्सएप डेस्क के लिए [सरकारी अधिकारी निर्देशिका](/contacts) देखें।`;
+    }
     if (q.includes('dispute') || q.includes('challenge') || q.includes('चुनौती') || q.includes('शिकायत')) {
       return `### गलत समाप्ति को चुनौती कैसे दें:
 1. **केस फ़ाइल खोलें**: अपनी शिकायत का विवरण देखें।
@@ -198,6 +225,16 @@ function generateCivicAssistantReply(query: string, context?: any, caseInfo?: st
   }
 
   // English default responses
+  if (q.includes('official') || q.includes('contact') || q.includes('helpline') || q.includes('engineer') || q.includes('bbmp') || q.includes('ghmc') || q.includes('mcd')) {
+    return `### 24/7 Civic Emergency Helplines & Municipal Escalation:
+* **1533 (Toll-Free)**: Municipal Pothole & Road Reparation Rapid Response Helpline.
+* **1916 (Toll-Free)**: Water Supply & Sewage Line Overflow / Open Manholes (BWSSB / HMWSSB).
+* **1912 (Toll-Free)**: Exposed High-Voltage Wires & Broken Streetlights (BESCOM / DISCOM).
+* **112 (National)**: All-India Emergency Response Support System (ERSS).
+
+For direct mobile numbers, official emails, WhatsApp grievance links, and ward jurisdiction maps of Chief Engineers and Zonal Commissioners, visit our interactive **[Government Contacts Directory](/contacts)**.`;
+  }
+
   if (q.includes('dispute') || q.includes('challenge') || q.includes('false closure') || q.includes('not fixed')) {
     return `### How to Challenge a False or Premature Closure:
 1. **Open the Report**: Navigate to the case file (e.g. [/reports/${context?.reportId || 'FP-000102'}](/reports/${context?.reportId || 'FP-000102'})).
@@ -246,3 +283,4 @@ ${caseInfo ? `\n*Currently assisting with active case ${context?.reportId}.*` : 
 
 How can I assist your civic audit today?`;
 }
+

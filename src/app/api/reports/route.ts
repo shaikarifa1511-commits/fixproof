@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     if (!parseResult.success) {
       const errorDetails = parseResult.error.format();
       const firstErrorMessage =
-        parseResult.error.errors[0]?.message || 'Invalid input data';
+        (parseResult.error as any).errors?.[0]?.message || parseResult.error.message || 'Invalid input data';
       return NextResponse.json(
         {
           success: false,

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Navbar } from '@/components/Navbar';
-import { Footer } from '@/components/Footer';
+import { AppLayout } from '@/components/AppLayout';
 import { CivicAssistantWidget } from '@/components/CivicAssistantWidget';
 import { AuthProvider } from '@/lib/auth/context';
 import { LanguageProvider } from '@/lib/i18n/context';
@@ -19,13 +18,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col font-sans antialiased text-slate-900 bg-slate-50 selection:bg-blue-100 selection:text-blue-900">
+      <body className="min-h-screen font-sans antialiased text-slate-900 bg-slate-50 selection:bg-blue-100 selection:text-blue-900">
         <AuthProvider>
           <LanguageProvider>
-            <Navbar />
-            <main className="flex-1">{children}</main>
-
-            <Footer />
+            <AppLayout>{children}</AppLayout>
             <CivicAssistantWidget />
           </LanguageProvider>
         </AuthProvider>

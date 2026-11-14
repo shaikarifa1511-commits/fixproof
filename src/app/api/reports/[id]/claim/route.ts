@@ -80,10 +80,9 @@ export async function POST(
     const claim = createRepairClaim({
       reportId: report.id,
       authorityId: uploaderId,
-      authorityName: contractorName,
-      afterEvidenceId: afterAsset.id,
-      notes,
+      description: notes,
       materialsUsed,
+      afterImageUrl: afterAsset.imageUrl,
       contractorName,
     });
 

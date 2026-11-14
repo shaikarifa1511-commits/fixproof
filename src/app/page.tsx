@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [stats, setStats] = useState<PublicAnalytics | null>(null);
   const [featuredReports, setFeaturedReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,8 +247,8 @@ export default function HomePage() {
                     alt="Before"
                     className="w-full h-full object-cover"
                   />
-                  <span className="absolute top-2 left-2 bg-slate-900/80 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded">
-                    BEFORE
+                  <span className="absolute top-2 left-2 bg-slate-900/80 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                    {language === 'te' ? 'మునుపు' : language === 'kn' ? 'ಮೊದಲು' : language === 'hi' ? 'पहले' : 'BEFORE'}
                   </span>
                 </div>
 
@@ -262,11 +262,11 @@ export default function HomePage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs font-semibold">
-                      Awaiting After
+                      {language === 'te' ? 'ఆధారాలు వేచి ఉన్నాయి' : language === 'kn' ? 'ಸಾಕ್ಷಿ ನಿರೀಕ್ಷೆಯಲ್ಲಿದೆ' : language === 'hi' ? 'साक्ष्य प्रतीक्षारत' : 'Awaiting After'}
                     </div>
                   )}
-                  <span className="absolute top-2 right-2 bg-slate-900/80 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded">
-                    AFTER
+                  <span className="absolute top-2 right-2 bg-slate-900/80 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+                    {language === 'te' ? 'తర్వాత' : language === 'kn' ? 'ನಂತರ' : language === 'hi' ? 'बाद में' : 'AFTER'}
                   </span>
                 </div>
 

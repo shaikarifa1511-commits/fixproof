@@ -24,7 +24,7 @@ import {
 export function Navbar() {
   const pathname = usePathname();
   const { currentUser } = useAuth();
-  const { t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -130,6 +130,27 @@ export function Navbar() {
               </Link>
             );
           })}
+          {/* Quick Mobile Language Navigation */}
+          <div className="pt-3 pb-2 border-t border-slate-100 flex items-center justify-between gap-1 text-xs">
+            {[
+              { code: 'en', label: 'English' },
+              { code: 'te', label: 'తెలుగు' },
+              { code: 'kn', label: 'ಕನ್ನಡ' },
+              { code: 'hi', label: 'हिंदी' },
+            ].map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => setLanguage(lang.code as any)}
+                className={`flex-1 py-1.5 rounded-lg text-center font-bold text-xs transition-all ${
+                  language === lang.code
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </header>

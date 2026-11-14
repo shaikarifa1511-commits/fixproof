@@ -1531,6 +1531,8 @@ export function getPublicAnalytics(includeDemo = true): PublicAnalytics {
   };
 }
 
+export const getAnalytics = getPublicAnalytics;
+
 export function updateReportStatus(
   reportId: string,
   workStatus?: WorkStatus,

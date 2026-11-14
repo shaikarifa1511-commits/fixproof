@@ -1,4 +1,4 @@
-export type UserRole = 'citizen' | 'authority' | 'moderator' | 'public';
+export type UserRole = 'citizen' | 'authority' | 'moderator' | 'public' | 'admin';
 
 export type WorkStatus =
   | 'submitted'
@@ -68,6 +68,7 @@ export interface BoundingBox {
 export interface AIVerificationResult {
   id?: string;
   reportId: string;
+  verdict?: string;
   category: ProblemCategory;
   comparison: {
     sameSceneAssessment: 'likely' | 'possible' | 'unlikely' | 'inconclusive';
@@ -146,6 +147,7 @@ export interface TimelineEvent {
 
 export interface Report {
   id: string;
+  caseNumber?: string;
   title: string;
   description: string;
   category: ProblemCategory;

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useLanguage } from '@/lib/i18n/context';
 import { AIVerificationResult, Report } from '@/lib/types';
 import { ImageSlider } from '@/components/ImageSlider';
 import { VerificationStatusBadge, WorkStatusBadge } from '@/components/StatusBadge';
@@ -30,6 +31,7 @@ import {
 
 export default function EvidenceComparePage() {
   const params = useParams();
+  const { t } = useLanguage();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'slider' | 'side-by-side'>('slider');
@@ -108,13 +110,14 @@ export default function EvidenceComparePage() {
             href={`/reports/${report.id}`}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 mb-1"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Case File ({report.id})
+            <ArrowLeft className="w-3.5 h-3.5" /> {t?.backToCase || 'Back to Case File'} ({report.id})
           </Link>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
-            <Cpu className="w-6 h-6 text-blue-600" /> AI Evidence Comparison Center
+            <Cpu className="w-6 h-6 text-blue-600" /> {t?.comparePageTitle || 'AI Evidence Comparison Center'}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Comparing original citizen complaint evidence against claimed municipal repair imagery.
+            {t?.comparePageSubtitle ||
+              'Comparing original citizen complaint evidence against claimed municipal repair imagery.'}
           </p>
         </div>
 
@@ -129,7 +132,7 @@ export default function EvidenceComparePage() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" /> Interactive Slider
+              <SlidersHorizontal className="w-3.5 h-3.5" /> {t?.interactiveSlider || 'Interactive Slider'}
             </button>
             <button
               onClick={() => setViewMode('side-by-side')}
@@ -139,7 +142,7 @@ export default function EvidenceComparePage() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Columns className="w-3.5 h-3.5" /> Side by Side
+              <Columns className="w-3.5 h-3.5" /> {t?.sideBySideView || 'Side by Side'}
             </button>
           </div>
 
@@ -151,7 +154,7 @@ export default function EvidenceComparePage() {
                 : 'bg-white border-slate-200 text-slate-600'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" /> Defect Highlights
+            <Layers className="w-3.5 h-3.5" /> {t?.overlayDefectRegion || 'Defect Highlights'}
           </button>
         </div>
       </div>
@@ -284,7 +287,7 @@ export default function EvidenceComparePage() {
                 <RefreshCw
                   className={`w-3.5 h-3.5 ${isRerunningAi ? 'animate-spin' : ''}`}
                 />
-                Re-evaluate Evidence
+                {t?.rerunAiVerification || 'Re-evaluate Evidence'}
               </button>
             </div>
           </div>

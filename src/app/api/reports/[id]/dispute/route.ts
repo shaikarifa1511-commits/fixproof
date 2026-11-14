@@ -74,18 +74,18 @@ export async function POST(
 
     const challenge = createChallenge({
       reportId: report.id,
-      complainantId,
-      complainantName,
+      citizenId: complainantId,
+      citizenName: complainantName,
       reason,
       description: body.description || reason,
       reinspectionEvidenceId,
       reinspectionImageUrl,
     });
 
-    // Update status to DISPUTED
+    // Update status to REOPENED (Disputed)
     updateReportStatus(
       report.id,
-      'disputed',
+      'reopened',
       report.verificationStatus,
       complainantName,
       `Citizen filed challenge: "${reason}"`
