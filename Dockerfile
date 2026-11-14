@@ -33,3 +33,4 @@ USER nextjs
 EXPOSE 10000
 
 CMD ["npm", "run", "start"]
+

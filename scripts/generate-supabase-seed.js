@@ -108,3 +108,4 @@ function esc(val) {
 
 fs.writeFileSync(path.join(__dirname, '../supabase/seed.sql'), sql, 'utf-8');
 console.log('Successfully generated supabase/seed.sql (' + sql.length + ' bytes)');
+

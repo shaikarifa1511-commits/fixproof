@@ -31,3 +31,4 @@ export async function GET() {
     platform: process.env.RENDER ? 'Render Cloud' : process.env.VERCEL ? 'Vercel' : 'Local Node Server',
   });
 }
+

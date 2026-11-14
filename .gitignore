@@ -11,5 +11,11 @@ yarn-debug.log*
 yarn-error.log*
 .vercel
 .vercel_config
+scripts/test-live-supabase.js
+supabase/.temp/
+.env
+.env.local
+*.tsbuildinfo
+
 
 
